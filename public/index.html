@@ -264,8 +264,6 @@
       <li>같은 링크(?room=이름)로 들어온 사람끼리 같은 산에서 만나요</li>
       <li>오른쪽 위 🔗 버튼으로 초대 링크를 복사할 수 있어요</li>
       <li>오른쪽 👋 ❤️ 야호 버튼으로 인사할 수 있어요</li>
-      <li>🎭 산도깨비는 보물을 가진 사람 곁에서 ‘슬쩍’ 버튼(E)으로 보물 하나를 가져갈 수 있어요</li>
-      <li>🌲 관리인은 산도깨비 곁에서 ‘호루라기’(E)를 불면 도깨비가 훔친 보물을 내려놓고 입구로 돌아가요</li>
       <li>아무도 없을 땐 산들·솔바람·다람쥐가 같이 걸어줘요</li>
     </ul>
     <div class="row"><button id="btnHelpClose" class="primary">닫기</button></div>
@@ -623,6 +621,14 @@ let world = null, groundMesh = null;
 let summitPos, summitY;
 
 let restSpots = [], springSpots = [];
+function makeDipper(color){
+  const g = new THREE.Group(), M2 = new THREE.MeshStandardMaterial({ color, roughness: 0.45, side: THREE.DoubleSide });
+  const cup = new THREE.Mesh(latheSmooth([[0.001,0.0],[0.1,0.0],[0.13,0.03],[0.145,0.13],[0.15,0.15]], 24, 12), M2); cup.rotation.x = Math.PI/2; cup.position.set(0, -0.17, -0.05); g.add(cup);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.008, 6, 24), M2); rim.position.set(0, -0.17, 0.1); g.add(rim);
+  const handle = new THREE.Mesh(capsuleGeo(0.022, 0.3, 10), M2); handle.scale.set(1, 1, 0.55); handle.position.set(0, 0.12, 0.02); handle.rotation.x = -0.08; g.add(handle);
+  g.traverse(o => { if(o.isMesh) o.castShadow = true; });
+  return g;
+}
 function computeRestSpots(){
   springSpots = [0.17, 0.69].map(f => {
     const p = pointAt(total*f); let ix = -p.x, iz = -p.z; const L = Math.hypot(ix, iz) || 1; ix /= L; iz /= L;
@@ -865,16 +871,20 @@ function buildWorld(){
     bamboo.rotation.x = Math.PI/2 - 0.35; bamboo.position.set(0, 0.98, -0.5); g.add(bamboo);
     const stream = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.026, 0.52, 8), new THREE.MeshStandardMaterial({ color: 0xbfe2f2, roughness: 0.05, transparent: true, opacity: 0.7, emissive: 0x24404c }));
     stream.position.set(0, 0.68, -0.04); g.add(stream);
-    const gourd = new THREE.Mesh(new THREE.SphereGeometry(0.13, 20, 12, 0, TAU, Math.PI/2, Math.PI/2), new THREE.MeshStandardMaterial({ color: 0xd8b06a, roughness: 0.7, side: THREE.DoubleSide }));
-    gourd.position.set(0.5, 0.5, 0.25); g.add(gourd);
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.36, 8), new THREE.MeshStandardMaterial({ color: 0xb8904e }));
-    handle.rotation.z = Math.PI/2 - 0.2; handle.position.set(0.73, 0.52, 0.25); g.add(handle);
+    // 바가지 걸이: wooden rail with red and blue dippers
+    const railM = new THREE.MeshStandardMaterial({ color: 0xa88458, roughness: 0.9, map: getAssets().bark });
+    [0.8, 3.25].forEach(xx => { const pp = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.85, 0.14), railM); pp.position.set(xx, 0.92, 0.0); g.add(pp); });
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(2.65, 0.09, 0.08), railM); rail.position.set(2.02, 1.7, 0.05); g.add(rail);
+    const dippers = [];
+    for(let k=0;k<7;k++){
+      const d = makeDipper(k % 2 ? 0x4a8fd8 : 0xd8322a); d.scale.setScalar(1.35); d.position.set(0.98 + k*0.375, 1.27, 0.12); d.rotation.y = (Math.random() - 0.5)*0.5; g.add(d); dippers.push(d);
+    }
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.3, 8), wood); post.position.set(-1.0, 0.65, 0.1); g.add(post);
     const tex = textTex([{t:'약수터', size:78, serif:true, b:true}, {t:'한 모금 쉬어가요', size:38}], 384, 210, '#7a5a3a', '#fff6e2', 'rgba(0,0,0,0.22)');
     const sb = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.44, 0.05), [wood, wood, wood, wood, new THREE.MeshLambertMaterial({ map: tex }), wood]); sb.position.set(-1.0, 1.42, 0.13); g.add(sb);
     g.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
     world.add(g);
-    springs.push({ x: w.x, z: w.z, water, stream, near: false });
+    springs.push({ x: w.x, z: w.z, water, stream, dippers, near: false });
   });
 
   /* summit: 정상석 + 돌탑 */
@@ -961,11 +971,10 @@ function buildWorld(){
 /* ---------- hikers ---------- */
 const JOBS = {
   hiker:    { name:'등산객',   ic:'🎒', desc:'보물을 찾으며 정상까지' },
-  dokkaebi: { name:'산도깨비', ic:'🎭', desc:'등산객의 보물을 슬쩍!' },
-  ranger:   { name:'관리인',   ic:'🌲', desc:'호루라기로 산도깨비를 잡아요' },
+  ranger:   { name:'관리인',   ic:'🌲', desc:'산과 등산로를 지키는 사람' },
 };
 const JOB_IDS = Object.keys(JOBS);
-const JOB_ALIAS = { bandit: 'dokkaebi', influencer: 'hiker' };
+const JOB_ALIAS = { bandit: 'hiker', influencer: 'hiker', dokkaebi: 'hiker' };
 const jobOf = j => JOBS[j] ? j : (JOB_ALIAS[j] || 'hiker');
 const V2 = (x, y) => new THREE.Vector2(x, y);
 function latheSmooth(pts, segs, div){ if(pts[0][1] > pts[pts.length-1][1]) pts = pts.slice().reverse(); const c = new THREE.SplineCurve(pts.map(q => V2(q[0], q[1]))); return new THREE.LatheGeometry(c.getPoints(div || 28), segs || 32); }
@@ -1048,6 +1057,7 @@ function makeHiker(o){
   const armL = limb(-0.37, 0.55, 0.44, 0.078, shirt, upper, hand), armR = limb(0.37, 0.55, 0.44, 0.078, shirt, upper, hand);
   if(job === 'dokkaebi') [legL, legR].forEach(l => a(new THREE.TorusGeometry(0.115, 0.04, 10, 24), Mt(0xf2efe6), 0, -0.4, 0, 1, 1, 1, Math.PI/2, 0, 0, l));
   if(job === 'ranger'){ const w = a(capsuleGeo(0.03, 0.06, 10), Mt(0xd8d8d8, 0x222222, 0.25), 0, -0.5, 0.06, 1, 1, 1, Math.PI/2, 0, 0, armR); w.visible = false; root.userData.whistle = w; }
+  { const dp = makeDipper(0xd8322a); dp.scale.setScalar(0.9); dp.position.set(0, -0.55, 0.1); dp.rotation.set(Math.PI*0.95, 0, 0); dp.visible = false; armR.add(dp); root.userData.dipper = dp; }
   armL.rotation.z = -0.12; armR.rotation.z = 0.12;
   root.traverse(m => { if(m.isMesh) m.castShadow = true; });
   scene.add(root);
@@ -1073,6 +1083,7 @@ function animHiker(h, dt, spd, t){
   if(h.drinkT > 0){ h.drinkT -= dt; const k = Math.min(1, (1.8 - h.drinkT)*4, h.drinkT*4); h.armR.rotation.x = -2.25*k; h.armR.rotation.z = 0.12 - 0.45*k; h.upper.rotation.x = -0.12*k; } else if(h.upper) h.upper.rotation.x = 0;
   if(h.whistleT > 0){ h.whistleT -= dt; h.armR.rotation.x = -2.55; h.armR.rotation.z = -0.55; }
   if(h.root.userData.whistle) h.root.userData.whistle.visible = h.whistleT > 0;
+  if(h.root.userData.dipper) h.root.userData.dipper.visible = h.drinkT > 0;
   if(h.waveT > 0){ h.waveT -= dt; h.armR.rotation.x = -2.75; h.armR.rotation.z = 0.15 + 0.4*Math.sin(t*11); }
   if(h.cheerT > 0){ h.cheerT -= dt; h.armL.rotation.x = -2.9; h.armR.rotation.x = -2.9; h.armL.rotation.z = -0.35; h.armR.rotation.z = 0.35;
     h.upper.position.y += Math.max(0, Math.sin((1.6 - h.cheerT)*8))*0.08; }
@@ -1768,7 +1779,7 @@ function drinkWater(){
   facing = Math.atan2(w.x - px, w.z - pz); player.drinkT = 1.8;
   Run.st = 100; updateRunButton();
   Sound.gulp();
-  toast('💧 시원한 약수 한 모금! 기운이 다시 차올랐어요', 3);
+  toast('💧 바가지로 시원한 약수 한 모금! 기운이 다시 차올랐어요', 3);
 }
 function updateRestButton(){
   const btn = $('btnRest'); const b = started && !Rest.on ? nearBench() : null;
@@ -2096,7 +2107,7 @@ function frame(now){
   else { yaw += dt*0.06; animHiker(player, dt, 0, clock); player.root.position.set(px,py,pz); player.root.rotation.y = yaw + Math.PI; }
   updateNPCs(dt, clock);
   updateTreasures(dt, clock); updateAnimals(dt, clock); updateLandslide(dt);
-  { let wd = 1e9; springs.forEach(w => { w.water.scale.setScalar(1 + Math.sin(clock*5 + w.x)*0.015); w.stream.material.opacity = 0.55 + Math.sin(clock*23 + w.z)*0.15; wd = Math.min(wd, Math.hypot(w.x - px, w.z - pz)); });
+  { let wd = 1e9; springs.forEach(w => { w.water.scale.setScalar(1 + Math.sin(clock*5 + w.x)*0.015); w.dippers.forEach((d, i) => d.rotation.z = Math.sin(clock*1.6 + i*1.3)*0.05*U.uWind.value); w.stream.material.opacity = 0.55 + Math.sin(clock*23 + w.z)*0.15; wd = Math.min(wd, Math.hypot(w.x - px, w.z - pz)); });
     Sound.setWater(started ? 1 - smoothstep(3, 26, wd) : 0);
     springs.forEach(w => { const d = Math.hypot(w.x - px, w.z - pz); if(started && d < 9 && !w.near){ w.near = true; toast('💧 약수터예요 · 물 한 모금 마시고 가요'); } else if(d > 18) w.near = false; }); }
   updateRemotes(dt, clock); tickBubble(myBubble, dt); sendPresence(dt);

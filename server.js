@@ -52,7 +52,7 @@ function sanitize(s) {
     e: EMOTES.has(s.e) ? s.e : '', et: num(s.et, 0, 1e15),
     tr: num(s.tr, 0, 8) | 0,
     mt: MOUNTAINS.includes(s.mt) ? s.mt : '',
-    j: ['hiker', 'dokkaebi', 'ranger'].includes(s.j) ? s.j : 'hiker',
+    j: ['hiker', 'ranger'].includes(s.j) ? s.j : 'hiker',
     st: act(s.st), wh: act(s.wh), ak: act(s.ak),
     si: s.si ? 1 : 0,
   };
