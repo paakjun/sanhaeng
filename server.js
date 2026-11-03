@@ -61,6 +61,7 @@ function sanitize(s) {
     pn: typeof s.pn === 'string' ? s.pn.replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff<>]/g, '').trim().slice(0, 12) : undefined,
     go: num(s.go, 0, 1e15),
     rp: s.rp ? 1 : 0,
+    gu: ['chair', 'mat', 'tent', 'fire'].includes(s.gu) ? s.gu : '',
     cy: num(s.cy, -8, 8), cl: s.cl ? 1 : 0,
   };
 }
