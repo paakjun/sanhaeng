@@ -297,6 +297,23 @@ const MOUNTAINS = [
     h:64, w:76, ridge:18, rocky:0.45, pine:0.22, palette:'maple', extra:'maples', turns:1.45, endR:1.5, seed:763 },
 ];
 const MT_BY_ID = Object.fromEntries(MOUNTAINS.map(m => [m.id, m]));
+/* 코스 구간: forest 숲길 · rock 바윗길 · ridge 능선길 · stairs 계단길 · valley 계곡길 */
+const SECTION_INFO = {
+  forest: { name:'숲길',   ic:'🌳', msg:'나무 그늘이 드리운 숲길이에요' },
+  rock:   { name:'바윗길', ic:'🪨', msg:'바윗길이에요 · 밧줄을 잡고 천천히' },
+  ridge:  { name:'능선길', ic:'⛰️', msg:'시야가 탁 트인 능선길이에요' },
+  stairs: { name:'계단길', ic:'🪜', msg:'나무 계단이 이어져요 · 한 걸음씩' },
+  valley: { name:'계곡길', ic:'💦', msg:'물소리 따라 걷는 계곡길이에요' },
+};
+const COURSES = {
+  bukhansan:  { wig:6, wigF:44, stream:0.16, sec:[[0,0.12,'forest'],[0.12,0.24,'valley'],[0.24,0.5,'forest'],[0.5,0.62,'stairs'],[0.62,1.01,'rock']] },
+  seoraksan:  { wig:7, wigF:58, stream:0.42, sec:[[0,0.3,'stairs'],[0.3,0.36,'forest'],[0.36,0.48,'valley'],[0.48,0.7,'forest'],[0.7,1.01,'rock']] },
+  jirisan:    { wig:3, wigF:22, stream:0.12, sec:[[0,0.08,'forest'],[0.08,0.22,'valley'],[0.22,0.58,'forest'],[0.58,0.86,'ridge'],[0.86,1.01,'rock']] },
+  hallasan:   { wig:2, wigF:14, stream:-1,   sec:[[0,0.62,'forest'],[0.62,0.8,'stairs'],[0.8,1.01,'ridge']] },
+  naejangsan: { wig:5, wigF:34, stream:0.2,  sec:[[0,0.14,'forest'],[0.14,0.28,'valley'],[0.28,0.5,'forest'],[0.5,0.68,'stairs'],[0.68,1.01,'ridge']] },
+};
+function sectionAtF(f){ const c = COURSES[M.id]; if(!c) return 'forest'; for(const q of c.sec) if(f >= q[0] && f < q[1]) return q[2]; return 'forest'; }
+function sectionAt(s){ return sectionAtF(s/total); }
 let M = MOUNTAINS[0];
 
 /* ---------- terrain shape ---------- */
@@ -320,7 +337,8 @@ function genPath(){
   for(let i=0;i<N;i++){
     const t = i/(N-1);
     const a = 0.6 + (M.seed%7)*0.7 + t*TAU*M.turns + 0.25*Math.sin(t*9);
-    const r = M.endR + (168 - M.endR)*Math.pow(1-t, 1.05) + 4*Math.sin(t*31)*(1-t);
+    const C = COURSES[M.id] || { wig:4, wigF:31 };
+    const r = M.endR + (168 - M.endR)*Math.pow(1-t, 1.05) + C.wig*Math.sin(t*C.wigF)*(1-t*0.6);
     path.push({ x: r*Math.cos(a), z: r*Math.sin(a) });
   }
   for(let i=0;i<N;i++) ph[i] = hRaw(path[i].x, path[i].z);
@@ -599,7 +617,8 @@ function textTex(lines, w, h, bg, fg, border){
 }
 const fmtDist = m => m >= 1000 ? (m/1000).toFixed(1) + 'km' : Math.round(m/10)*10 + 'm';
 
-const ribbons = [], benches = [], clouds = [], springs = [];
+const ribbons = [], benches = [], clouds = [], springs = [], streams = [];
+let _rg2 = null; function rockGeo2Global(){ if(!_rg2){ _rg2 = new THREE.IcosahedronGeometry(1, 1); jitterGeo(_rg2, 0.4, 1.3, 33); _rg2.computeVertexNormals(); } return _rg2; }
 let world = null, groundMesh = null;
 let summitPos, summitY;
 
@@ -649,8 +668,12 @@ function buildWorld(){
     c = mix(c, rust, smoothstep(0.2, 0.5, fbm(x*0.013-7, z*0.013+2, 3)) * 0.45);
     c = mix(c, rock, smoothstep(M.h*0.72, M.h*1.02, y) * (M.extra === 'crater' ? 0.85 : 0.65));
     if(n){
+      const sec = n.d < 22 ? sectionAt(n.s) : '';
+      if(sec === 'rock'){ c = mix(c, [0.6,0.58,0.53], (1 - smoothstep(3, 18, n.d))*0.9); }
+      else if(sec === 'ridge'){ c = mix(c, [0.66,0.6,0.38], (1 - smoothstep(3, 20, n.d))*0.55); }
+      else if(sec === 'forest' || sec === 'valley'){ c = mix(c, [0.25,0.36,0.18], (1 - smoothstep(3, 14, n.d))*0.45); }
       c = mix(c, edge, (1 - smoothstep(2.2, 3.6, n.d)) * 0.5);
-      c = mix(c, dirt, 1 - smoothstep(1.2, 2.5, n.d));
+      c = mix(c, sec === 'rock' ? [0.7,0.68,0.63] : dirt, 1 - smoothstep(1.2, 2.5, n.d));
     }
     const v = (hash2(x*3.1, z*2.7) - 0.5) * 0.05;
     col[i*3] = c[0]+v; col[i*3+1] = c[1]+v; col[i*3+2] = c[2]+v;
@@ -674,6 +697,7 @@ function buildWorld(){
     const r = 245*Math.sqrt(rand()), a = rand()*TAU, x = r*Math.cos(a), z = r*Math.sin(a);
     const n = nearest(x,z); if(n && n.d < 4.4) continue;
     if(Math.hypot(x,z) < 13) continue;
+    { const sec = n && n.d < 22 ? sectionAt(n.s) : ''; if(sec === 'rock' && n.d < 18 && rand() < 0.92) continue; if(sec === 'ridge' && n.d < 16 && rand() < 0.8) continue; }
     if(blocksView(x, z)) continue;
     const dn = fbm(x*0.03, z*0.03, 3)*0.5+0.5;
     if(rand() > 0.15 + dn*0.95) continue;
@@ -681,6 +705,16 @@ function buildWorld(){
     if(M.extra === 'maples' && n && n.d < 14 && rand() < 0.5){ leafy.push({ x, y: y-0.15, z, ry: rand()*TAU, s: rr(0.9, 1.5), sy: rr(0.9, 1.25) }); continue; }
     const t = { x, y: y-0.15, z, ry: rand()*TAU, s: rr(0.8, 1.45), sy: rr(0.9, 1.25) };
     (rand() < M.pine + smoothstep(M.h*0.5, M.h*0.95, y)*0.3 ? pines : leafy).push(t);
+  }
+  // 숲길: extra trees close to the trail so the canopy closes overhead
+  for(let k=0; k<5000; k++){
+    const sAt = rand()*total; if(sectionAt(sAt) !== 'forest' && sectionAt(sAt) !== 'valley') continue;
+    const p = pointAt(sAt), side = rand() < 0.5 ? -1 : 1, off = rr(4.6, 11);
+    const x = p.x - p.tz*off*side, z = p.z + p.tx*off*side;
+    const n = nearest(x, z); if(n && n.d < 4.4) continue; if(blocksView(x, z)) continue;
+    const y = height(x, z), t = { x, y: y - 0.15, z, ry: rand()*TAU, s: rr(1.0, 1.55), sy: rr(1.0, 1.3) };
+    (rand() < M.pine ? pines : leafy).push(t);
+    if(pines.length + leafy.length > (isTouch ? 2000 : 2700)) break;
   }
   if(!TREE_MODELS) TREE_MODELS = makeTreeModels();
   const A = getAssets();
@@ -761,12 +795,67 @@ function buildWorld(){
   for(let s2 = 6; s2 < total - 6; s2 += 1.35){
     const p = pointAt(s2), q = pointAt(s2 + 1.35);
     const h1 = height(p.x, p.z), h2 = height(q.x, q.z);
-    if((h2 - h1)/1.35 > 0.17) steps.push([p.x, h1, p.z, Math.atan2(p.tx, p.tz)]);
+    if((h2 - h1)/1.35 > 0.17 || sectionAt(s2) === 'stairs') steps.push([p.x, h1, p.z, Math.atan2(p.tx, p.tz)]);
   }
   if(steps.length){
     const sgeo = new THREE.CylinderGeometry(0.09, 0.09, 1.9, 7); sgeo.rotateZ(Math.PI/2);
     const sm = instanced(sgeo, new THREE.MeshStandardMaterial({ color: 0x8a6a48, roughness: 1, map: getAssets().bark }), steps.length, { cast: true, receive: true });
     steps.forEach((q, i) => setInst(sm, i, q[0], q[1] + 0.03, q[2], q[3], 1));
+  }
+
+  /* 바윗길: big boulders + rope railing */
+  { const bP = [], posts = [];
+    for(let s2 = 0; s2 < total; s2 += 1.1){
+      if(sectionAt(s2) !== 'rock') continue;
+      const p = pointAt(s2);
+      if(rand() < 0.55){ const side = rand() < 0.5 ? -1 : 1, off = rr(2.6, 9); bP.push([p.x - p.tz*off*side, p.z + p.tx*off*side, rr(0.8, 2.6)]); }
+      if(Math.round(s2/1.1) % 4 === 0) [-1, 1].forEach(side => posts.push({ x: p.x - p.tz*1.9*side, z: p.z + p.tx*1.9*side, side, s2 }));
+    }
+    if(bP.length){
+      const bg = new THREE.IcosahedronGeometry(1, 1); jitterGeo(bg, 0.5, 1.1, 21); bg.computeVertexNormals();
+      const bm = instanced(bg, new THREE.MeshStandardMaterial({ color: M.extra === 'granite' ? 0xd2cdbf : 0xa39e92, roughness: 1, flatShading: true }), bP.length, { cast: true, receive: true });
+      bP.forEach((q, i) => setInst(bm, i, q[0], height(q[0], q[1]) - q[2]*0.35, q[1], rand()*TAU, q[2], rr(0.55, 0.9), rr(-0.2, 0.2), rr(-0.2, 0.2)));
+    }
+    if(posts.length){
+      const pm = instanced(new THREE.CylinderGeometry(0.05, 0.06, 1.0, 8).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: 0x5a5a5a, roughness: 0.5, metalness: 0.5 }), posts.length, { cast: true });
+      posts.forEach((q, i) => { q.y = height(q.x, q.z); setInst(pm, i, q.x, q.y, q.z, 0, 1); });
+      const segs = [];
+      [-1, 1].forEach(side => { const L = posts.filter(q => q.side === side); for(let i=1;i<L.length;i++) if(L[i].s2 - L[i-1].s2 < 5) segs.push([L[i-1], L[i]]); });
+      if(segs.length){
+        const rm = instanced(new THREE.CylinderGeometry(0.022, 0.022, 1, 6), new THREE.MeshStandardMaterial({ color: 0xc9a86a, roughness: 0.9 }), segs.length);
+        const up = new THREE.Vector3(0, 1, 0), v = new THREE.Vector3();
+        segs.forEach(([a, b], i) => {
+          v.set(b.x - a.x, b.y - a.y, b.z - a.z); const len = v.length(); v.normalize();
+          dummy.position.set((a.x + b.x)/2, (a.y + b.y)/2 + 0.88, (a.z + b.z)/2); dummy.quaternion.setFromUnitVectors(up, v); dummy.scale.set(1, len, 1); dummy.updateMatrix(); rm.setMatrixAt(i, dummy.matrix);
+        });
+        dummy.quaternion.identity();
+      }
+    }
+  }
+  /* 계곡: a stream crossing the trail with stepping stones */
+  streams.length = 0;
+  { const C = COURSES[M.id];
+    if(C && C.stream > 0){
+      const p = pointAt(total*C.stream), ax = -p.tz, az = p.tx, LEN = 46, SEG = 46;
+      const geo = new THREE.PlaneGeometry(2.2, LEN, 1, SEG); const pos = geo.attributes.position;
+      for(let i=0;i<pos.count;i++){
+        const lx = pos.getX(i), ly = pos.getY(i), wob = Math.sin(ly*0.25)*1.2;
+        const x = p.x + ax*ly + p.tx*(lx + wob), z = p.z + az*ly + p.tz*(lx + wob);
+        pos.setXYZ(i, x, height(x, z) + 0.16, z);
+      }
+      geo.computeVertexNormals();
+      const wtex = canvasTex(64, (x, S) => { x.fillStyle = '#7fb4cf'; x.fillRect(0, 0, S, S); for(let i=0;i<60;i++){ x.fillStyle = 'rgba(255,255,255,' + (0.15 + rand()*0.35) + ')'; x.fillRect(rand()*S, rand()*S, 2 + rand()*10, 1.5); } });
+      wtex.repeat.set(1, 10);
+      const water = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: wtex, roughness: 0.1, metalness: 0.15, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }));
+      water.receiveShadow = true; world.add(water);
+      const stones = instanced(rockGeo2Global(), new THREE.MeshStandardMaterial({ color: 0x9d998e, roughness: 1, flatShading: true }), 26, { cast: true, receive: true });
+      for(let i=0;i<26;i++){
+        const onTrail = i < 4, ly = onTrail ? 0 : rr(-LEN/2, LEN/2), lx = onTrail ? -1.5 + i*1.0 : rr(-1.6, 1.6)*(rand() < 0.5 ? 1 : -1);
+        const x = p.x + ax*ly + p.tx*lx + (onTrail ? 0 : ax*0), z = p.z + az*ly + p.tz*lx;
+        const sc = onTrail ? 0.42 : rr(0.3, 0.8); setInst(stones, i, x, height(x, z) + (onTrail ? 0.05 : -0.05), z, rand()*TAU, sc, onTrail ? 0.45 : rr(0.4, 0.8));
+      }
+      streams.push({ x: p.x, z: p.z, ax, az, len: LEN, tex: wtex });
+    }
   }
 
   /* rocks (moss on top) */
@@ -1812,12 +1901,14 @@ let px=0, pz=0, py=0, facing=0, sPlayer=0, playerD=0;
 let yaw=0, pitch=0.32, dist=7.5, camInit=false, lastDrag=-10;
 let started=false, auto=false, startTime=0, summitShown=false, paused=false;
 const flags = {};
+let curSection = '';
 const keys = new Set();
 const joy = { x:0, y:0, id:null };
 const camTarget = new THREE.Vector3();
 
 function setAuto(v){ auto = v; if(v && typeof Move !== 'undefined') Move.target = null; $('btnAuto').classList.toggle('on', v); $('btnAuto').innerHTML = '<span class="dot"></span>' + (v ? '걷는 중… (멈추기)' : '길 따라 걷기'); }
 function resetToStart(){
+  curSection = '';
   if(typeof Rest !== 'undefined' && Rest.on){ Rest.on = false; player.sitting = false; $('hud').classList.remove('resting'); $('btnStand').classList.add('hidden'); }
   const p = pointAt(2.5), side = (Math.random()*2 - 1)*1.3; px = p.x - p.tz*side; pz = p.z + p.tx*side; facing = Math.atan2(p.tx, p.tz); yaw = facing; sPlayer = 2.5;
   py = height(px,pz); summitShown = false; startTime = clock; camInit = false; for(const k in flags) delete flags[k];
@@ -1907,9 +1998,9 @@ function updatePlayer(dt, t){
   if(n){ playerD = n.d; if(n.d < 14) sPlayer = n.s; } else playerD = 99;
 
   const f = sPlayer/total;
+  { const sec = sectionAtF(f); if(sec !== curSection && playerD < 10 && f > 0.01){ curSection = sec; const I = SECTION_INFO[sec]; toast(I.ic + ' ' + I.msg, 3.2); } }
   const milestone = (key, cond, msg) => { if(cond && !flags[key]){ flags[key] = true; toast(msg); } };
   milestone('m0', f > 0.015, '등산로에 들어섰어요. 천천히 걸어요.');
-  milestone('m1', f > 0.2, '바람에 나뭇잎이 살랑거려요.');
   milestone('m2', f > 0.5, '절반을 왔어요. 숨 한 번 크게 쉬어요.');
   milestone('m3', f > 0.82, '정상이 얼마 남지 않았어요.');
   benches.forEach(b => { const d = Math.hypot(b.x-px, b.z-pz); if(d < 5 && !b.near){ b.near = true; toast('🪑 쉼터예요 · 벤치에 앉아 풍경을 볼 수 있어요'); } else if(d > 14) b.near = false; });
@@ -1952,7 +2043,7 @@ let hudT = 0;
 function updateHUD(dt){
   hudT -= dt; if(hudT > 0) return; hudT = 0.25;
   const remain = Math.max(0, (total - sPlayer) * METERS);
-  $('stats').textContent = '해발 ' + ELEV(py).toLocaleString('ko-KR') + 'm · ' + (remain < 40 ? M.peak : M.peak + '까지 ' + fmtDist(remain));
+  $('stats').textContent = '해발 ' + ELEV(py).toLocaleString('ko-KR') + 'm · ' + (curSection ? SECTION_INFO[curSection].name + ' · ' : '') + (remain < 40 ? M.peak : M.peak + '까지 ' + fmtDist(remain));
   $('barFill').style.width = (sPlayer/total*100).toFixed(1) + '%';
 }
 
@@ -2087,7 +2178,9 @@ function frame(now){
   updateNPCs(dt, clock);
   updateTreasures(dt, clock); updateAnimals(dt, clock); updateLandslide(dt);
   { let wd = 1e9; springs.forEach(w => { w.water.scale.setScalar(1 + Math.sin(clock*5 + w.x)*0.015); w.dippers.forEach((d, i) => d.rotation.z = Math.sin(clock*1.6 + i*1.3)*0.05*U.uWind.value); w.stream.material.opacity = 0.55 + Math.sin(clock*23 + w.z)*0.15; wd = Math.min(wd, Math.hypot(w.x - px, w.z - pz)); });
-    Sound.setWater(started ? 1 - smoothstep(3, 26, wd) : 0);
+    let sv = 0; streams.forEach(st => { st.tex.offset.y -= dt*0.6; const dx = px - st.x, dz = pz - st.z, along = clamp(dx*st.ax + dz*st.az, -st.len/2, st.len/2);
+      const d = Math.hypot(dx - st.ax*along, dz - st.az*along); sv = Math.max(sv, 1 - smoothstep(3, 40, d)); });
+    Sound.setWater(started ? Math.max(1 - smoothstep(3, 26, wd), sv*1.3) : 0);
     springs.forEach(w => { const d = Math.hypot(w.x - px, w.z - pz); if(started && d < 9 && !w.near){ w.near = true; toast('💧 약수터예요 · 물 한 모금 마시고 가요'); } else if(d > 18) w.near = false; }); }
   updateRemotes(dt, clock); tickBubble(myBubble, dt); sendPresence(dt);
   const alone = Online.remotes.size === 0; npcs.forEach(n => n.h.root.visible = alone);
@@ -2140,7 +2233,7 @@ function renderMountainPicker(){
     const b = document.createElement('button'); b.className = 'mt' + (m.id === M.id ? ' sel' : '');
     const n = document.createElement('b'); n.textContent = m.name;
     const e = document.createElement('span'); e.textContent = m.peak + ' ' + m.elev.toLocaleString('ko-KR') + 'm';
-    const t = document.createElement('span'); t.textContent = m.tag;
+    const t = document.createElement('span'); const cs = COURSES[m.id]; t.textContent = cs ? [...new Set(cs.sec.map(q => SECTION_INFO[q[2]].ic))].join('') + ' ' + m.tag : m.tag;
     b.append(n, e, t);
     if(mtCounts[m.id]){ const l = document.createElement('span'); l.className = 'live'; l.textContent = '● ' + mtCounts[m.id] + '명 오르는 중'; b.appendChild(l); }
     b.addEventListener('click', () => { if(m.id === M.id) return; switchMountain(m.id); });
