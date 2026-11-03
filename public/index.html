@@ -118,6 +118,10 @@
   #start p#mtDesc { font-size:14px; margin:0 0 10px !important; }
   .mts { margin-bottom:14px !important; }
   #start small { margin-top:12px !important; }
+  #btnAct { position:absolute; right:18px; bottom:284px; pointer-events:auto; border:none; cursor:pointer; padding:13px 18px; border-radius:999px;
+            font-family:inherit; font-size:15px; color:#fff; background:#b4532c; box-shadow:0 6px 20px rgba(120,40,10,0.35); animation:pulse 1.4s ease-in-out infinite; }
+  #btnAct:disabled { background:#9a8f80; animation:none; }
+  @keyframes pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.06); } }
 </style>
 </head>
 <body>
@@ -137,6 +141,7 @@
     <button id="btnExit" class="icon" aria-label="산에서 나가기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 16l-4-4 4-4"/><path d="M6 12h10"/></svg></button>
   </div>
   <div id="players"></div>
+  <button id="btnAct" class="hidden"></button>
   <div id="emotes">
     <button data-e="wave" aria-label="손 흔들기">👋</button>
     <button data-e="heart" aria-label="하트">❤️</button>
@@ -153,6 +158,7 @@
   <div class="mts" id="mts"></div>
   <div class="setup">
     <div class="jobs" id="jobs"></div>
+    <div id="jobDesc" style="font-size:13px;opacity:.9;margin-top:-4px"></div>
     <div class="nickrow"><input id="nick" maxlength="10" placeholder="산에서 쓸 이름" autocomplete="off" enterkeyhint="done"><button id="btnDice" class="dice" aria-label="이름 다시 뽑기">🎲</button></div>
     <div class="swatches" id="swatches"></div>
   </div>
@@ -200,6 +206,8 @@
       <li>같은 링크(?room=이름)로 들어온 사람끼리 같은 산에서 만나요</li>
       <li>오른쪽 위 🔗 버튼으로 초대 링크를 복사할 수 있어요</li>
       <li>오른쪽 👋 ❤️ 야호 버튼으로 인사할 수 있어요</li>
+      <li>🎭 산도깨비는 보물을 가진 사람 곁에서 ‘슬쩍’ 버튼(E)으로 보물 하나를 가져갈 수 있어요</li>
+      <li>🌲 관리인은 산도깨비 곁에서 ‘호루라기’(E)를 불면 도깨비가 훔친 보물을 내려놓고 입구로 돌아가요</li>
       <li>아무도 없을 땐 산들·솔바람·다람쥐가 같이 걸어줘요</li>
     </ul>
     <div class="row"><button id="btnHelpClose" class="primary">닫기</button></div>
@@ -835,84 +843,92 @@ function buildWorld(){
 
 /* ---------- hikers ---------- */
 const JOBS = {
-  hiker:      { name:'등산객',     ic:'🎒' },
-  bandit:     { name:'산적',       ic:'🏴' },
-  ranger:     { name:'관리인',     ic:'🌲' },
-  influencer: { name:'인플루언서', ic:'📸' },
+  hiker:    { name:'등산객',   ic:'🎒', desc:'보물을 찾으며 정상까지' },
+  dokkaebi: { name:'산도깨비', ic:'🎭', desc:'등산객의 보물을 슬쩍!' },
+  ranger:   { name:'관리인',   ic:'🌲', desc:'호루라기로 산도깨비를 잡아요' },
 };
 const JOB_IDS = Object.keys(JOBS);
+const JOB_ALIAS = { bandit: 'dokkaebi', influencer: 'hiker' };
+const jobOf = j => JOBS[j] ? j : (JOB_ALIAS[j] || 'hiker');
+const V2 = (x, y) => new THREE.Vector2(x, y);
+function latheSmooth(pts, segs, div){ const c = new THREE.SplineCurve(pts.map(q => V2(q[0], q[1]))); return new THREE.LatheGeometry(c.getPoints(div || 28), segs || 32); }
+function capsuleGeo(r, len, segs){
+  const pts = [];
+  for(let i=0;i<=8;i++){ const a = -Math.PI/2 + i/8*Math.PI/2; pts.push(V2(Math.max(0.0001, Math.cos(a)*r), -len/2 + Math.sin(a)*r)); }
+  for(let i=0;i<=8;i++){ const a = i/8*Math.PI/2; pts.push(V2(Math.max(0.0001, Math.cos(a)*r), len/2 + Math.sin(a)*r)); }
+  return new THREE.LatheGeometry(pts, segs || 20);
+}
 function makeHiker(o){
-  const job = JOBS[o.job] ? o.job : 'hiker';
-  const Mt = (c, e) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, emissive: e || 0x000000 });
+  const job = jobOf(o.job);
+  const Mt = (c, e, rough) => new THREE.MeshStandardMaterial({ color: c, roughness: rough == null ? 0.68 : rough, emissive: e || 0x000000 });
   const root = new THREE.Group(), upper = new THREE.Group(); root.add(upper); upper.position.y = 0.62;
-  const skin = Mt(0xf6d6b6), dark = Mt(0x222222), accent = Mt(o.jacket);
+  const skin = Mt(0xf7d9bd, 0x1a0f08, 0.6), dark = Mt(0x2a2522, 0, 0.35), accent = Mt(o.jacket);
   const a = (geo, mat, x, y, z, sx, sy, sz, rx, ry, rz, parent) => { const m = new THREE.Mesh(geo, mat); m.position.set(x,y,z); m.scale.set(sx||1, sy||1, sz||1); m.rotation.set(rx||0, ry||0, rz||0); (parent||upper).add(m); return m; };
-  const half = (r) => new THREE.SphereGeometry(r, 18, 10, 0, TAU, 0, Math.PI/2);
-  let shirt, pantsC, shoeC = 0x4a3a2c;
+  const S = (r, w, h) => new THREE.SphereGeometry(r, w || 32, h || 24);
+  let shirt, pantsC, shoeC = 0x5a4434;
   if(job === 'hiker'){ shirt = accent; pantsC = o.pants || 0x3b4a5a; }
-  else if(job === 'bandit'){ shirt = Mt(0xebe4d2); pantsC = 0x6c6f78; shoeC = 0xc9a86a; }
-  else if(job === 'ranger'){ shirt = Mt(0x5d6b3e); pantsC = 0x3c4030; shoeC = 0x2b2620; }
-  else { shirt = accent; pantsC = 0xf2efe8; shoeC = 0xf7f7f7; }
-  a(new THREE.CylinderGeometry(0.3, 0.37, 0.64, 12), shirt, 0, 0.32, 0);
-  a(new THREE.SphereGeometry(0.34, 18, 14), skin, 0, 0.96, 0);
-  [-1,1].forEach(sx => { a(new THREE.SphereGeometry(0.045, 8, 6), dark, 0.12*sx, 0.98, 0.31); a(new THREE.SphereGeometry(0.06, 8, 6), Mt(0xf3a3a0), 0.2*sx, 0.88, 0.27, 1, 0.6, 0.4); });
+  else if(job === 'dokkaebi'){ shirt = Mt(0xefe8d6); pantsC = 0x5f6470; shoeC = 0xc9a86a; }
+  else { shirt = Mt(0x5d6b3e); pantsC = 0x3c4030; shoeC = 0x2e2924; }
+  // torso: soft rounded body
+  a(latheSmooth([[0.001,-0.02],[0.3,0.0],[0.37,0.1],[0.385,0.28],[0.36,0.46],[0.3,0.6],[0.18,0.68],[0.001,0.7]], 36), shirt, 0, 0, 0);
+  // head
+  const headY = 1.0;
+  a(S(0.37), skin, 0, headY, 0);
+  [-1,1].forEach(sx => a(S(0.07, 16, 12), skin, 0.36*sx, headY - 0.02, 0, 0.6, 1, 0.8));      // ears
+  const eyes = [];
+  [-1,1].forEach(sx => {
+    eyes.push(a(S(0.05, 20, 16), dark, 0.13*sx, headY + 0.02, 0.33, 1, 1.15, 0.7));
+    a(S(0.016, 10, 8), Mt(0xffffff, 0xffffff, 0.2), 0.13*sx + 0.015, headY + 0.045, 0.365);       // eye shine
+    a(S(0.065, 16, 12), Mt(0xf4a9a4, 0x3a1010, 0.8), 0.22*sx, headY - 0.09, 0.29, 1, 0.55, 0.35); // blush
+  });
+  a(new THREE.TorusGeometry(0.045, 0.012, 8, 20, Math.PI), dark, 0, headY - 0.1, 0.345, 1, 1, 1, Math.PI, 0, 0); // smile
   if(job === 'hiker'){
-    a(new THREE.CylinderGeometry(0.3, 0.36, 0.2, 14), Mt(o.hat || 0xf2c14e), 0, 1.24, 0);
-    a(new THREE.CylinderGeometry(0.52, 0.52, 0.035, 18), Mt(o.hat || 0xf2c14e), 0, 1.16, 0);
-    a(new THREE.BoxGeometry(0.46, 0.52, 0.25), Mt(o.pack || 0x4f7c6a), 0, 0.36, -0.31);
-    a(new THREE.CylinderGeometry(0.09, 0.09, 0.5, 10), Mt(0xd8c39a), 0, 0.67, -0.31, 1, 1, 1, 0, 0, Math.PI/2);
-  } else if(job === 'bandit'){
-    const vest = Mt(0x6b4a2c);
-    a(new THREE.CylinderGeometry(0.315, 0.38, 0.46, 12, 1, true, 0.35, TAU - 0.7), vest, 0, 0.29, 0).material.side = THREE.DoubleSide;
-    a(new THREE.TorusGeometry(0.36, 0.035, 6, 18), Mt(0xc9a86a), 0, 0.07, 0, 1, 1, 1, Math.PI/2);
-    a(half(0.352), dark, 0, 0.98, -0.01, 1, 0.9, 1);
-    const band = a(new THREE.CylinderGeometry(0.355, 0.355, 0.09, 18, 1, true), accent, 0, 1.09, 0); band.material.side = THREE.DoubleSide;
-    a(new THREE.ConeGeometry(0.05, 0.22, 5), accent, 0.06, 1.0, -0.36, 1, 1, 1, 0.5, 0, 0.4);
-    a(new THREE.ConeGeometry(0.05, 0.2, 5), accent, -0.06, 0.99, -0.36, 1, 1, 1, 0.5, 0, -0.4);
-    a(new THREE.SphereGeometry(0.2, 12, 8), Mt(0x2b2420), 0, 0.8, 0.17, 1.25, 0.75, 0.6);
-    [-1,1].forEach(sx => a(new THREE.BoxGeometry(0.11, 0.035, 0.02), dark, 0.12*sx, 1.07, 0.32, 1, 1, 1, 0, 0, -0.25*sx));
-    a(new THREE.SphereGeometry(0.25, 12, 9), Mt(0xb8956a), 0, 0.42, -0.34, 1, 0.9, 0.7);
-    a(new THREE.SphereGeometry(0.07, 8, 6), Mt(0xa07f55), 0, 0.66, -0.2);
-  } else if(job === 'ranger'){
-    const felt = Mt(0x8a6d45);
-    a(new THREE.CylinderGeometry(0.22, 0.3, 0.24, 12), felt, 0, 1.29, 0);
-    a(new THREE.CylinderGeometry(0.305, 0.305, 0.05, 14), dark, 0, 1.2, 0);
-    a(new THREE.CylinderGeometry(0.6, 0.6, 0.03, 20), felt, 0, 1.17, 0);
-    a(new THREE.ConeGeometry(0.15, 0.2, 3), accent, 0, 0.56, 0.27, 1, 1, 0.5, Math.PI);
-    a(new THREE.SphereGeometry(0.045, 8, 6), Mt(0xe0b347, 0x5a4410), 0.15, 0.47, 0.33, 1, 1, 0.5);
-    [-1,1].forEach(sx => a(new THREE.BoxGeometry(0.12, 0.1, 0.03), Mt(0x4f5c33), 0.13*sx, 0.36, 0.34));
-    a(new THREE.TorusGeometry(0.365, 0.03, 6, 18), dark, 0, 0.06, 0, 1, 1, 1, Math.PI/2);
-    a(new THREE.BoxGeometry(0.08, 0.17, 0.07), dark, 0.38, 0.1, 0.05);
-    a(new THREE.BoxGeometry(0.38, 0.42, 0.2), Mt(0x4a5236), 0, 0.36, -0.3);
+    const hatM = Mt(o.hat || 0xf2c14e);
+    a(latheSmooth([[0.001,0.2],[0.2,0.2],[0.29,0.15],[0.33,0.05],[0.36,-0.02],[0.5,-0.06],[0.56,-0.09],[0.52,-0.1],[0.36,-0.06],[0.001,-0.06]], 40, 40), hatM, 0, headY + 0.26, 0);
+    a(S(1, 28, 20), Mt(o.pack || 0x4f7c6a), 0, 0.36, -0.32, 0.25, 0.29, 0.14);
+    a(capsuleGeo(0.085, 0.36, 20), Mt(0xd8c39a), 0, 0.68, -0.32, 1, 1, 1, 0, 0, Math.PI/2);
+    [-1,1].forEach(sx => a(new THREE.TorusGeometry(0.2, 0.022, 8, 24, Math.PI*0.9), Mt(0x3d5f52), 0.16*sx, 0.45, -0.08, 1, 1.25, 1, 0, Math.PI/2, Math.PI*0.05));
+  } else if(job === 'dokkaebi'){
+    const vest = Mt(0x6e4a2b);
+    const v = a(new THREE.CylinderGeometry(0.375, 0.42, 0.5, 40, 1, true, 0.42, TAU - 0.84), vest, 0, 0.3, 0); v.material.side = THREE.DoubleSide;
+    a(new THREE.TorusGeometry(0.375, 0.035, 10, 40), Mt(0xc9a86a), 0, 0.07, 0, 1, 1, 1, Math.PI/2);
+    a(S(0.385, 32, 16), Mt(0x1e1a18, 0, 0.8), 0, headY + 0.01, -0.01, 1, 1.02, 1, 0, 0, 0).geometry = new THREE.SphereGeometry(0.385, 32, 14, 0, TAU, 0, Math.PI*0.47);
+    const band = a(new THREE.CylinderGeometry(0.38, 0.38, 0.09, 40, 1, true), accent, 0, headY + 0.12, 0); band.material.side = THREE.DoubleSide;
+    [-1,1].forEach(sx => a(new THREE.ConeGeometry(0.055, 0.17, 20), Mt(0xf3ead2, 0x221a08, 0.5), 0.14*sx, headY + 0.38, 0.02, 1, 1, 1, 0, 0, -0.22*sx)); // little horns
+    a(new THREE.ConeGeometry(0.05, 0.22, 16), accent, 0.06, headY + 0.04, -0.38, 1, 1, 1, 0.5, 0, 0.4);
+    a(new THREE.ConeGeometry(0.05, 0.2, 16), accent, -0.06, headY + 0.03, -0.38, 1, 1, 1, 0.5, 0, -0.4);
+    a(S(0.2, 24, 16), Mt(0x2b2420, 0, 0.9), 0, headY - 0.18, 0.18, 1.25, 0.72, 0.6);                 // beard
+    [-1,1].forEach(sx => a(capsuleGeo(0.022, 0.08, 10), dark, 0.13*sx, headY + 0.11, 0.33, 1, 1, 1, 0, 0, Math.PI/2 - 0.3*sx)); // brows
+    a(S(1, 28, 20), Mt(0xb8956a), 0, 0.42, -0.35, 0.26, 0.24, 0.19);                               // 봇짐
+    a(S(0.075, 16, 12), Mt(0xa07f55), 0, 0.64, -0.22);
   } else {
-    a(half(0.36), Mt(0xffffff), 0, 1.0, 0, 1, 0.85, 1);
-    a(new THREE.BoxGeometry(0.34, 0.03, 0.26), Mt(0xffffff), 0, 1.03, 0.4);
-    [-1,1].forEach(sx => a(new THREE.BoxGeometry(0.14, 0.085, 0.03), dark, 0.12*sx, 0.99, 0.32));
-    a(new THREE.BoxGeometry(0.08, 0.02, 0.02), dark, 0, 1.01, 0.33);
-    a(new THREE.SphereGeometry(0.22, 12, 8), accent, 0, 0.62, -0.27, 1.25, 0.65, 0.7);
-    a(new THREE.BoxGeometry(0.2, 0.15, 0.08), Mt(0xf1b9c9), -0.2, 0.14, 0.32);
-    a(new THREE.TorusGeometry(0.33, 0.012, 4, 20), Mt(0xf1b9c9), 0, 0.4, 0, 1, 1, 1, 0.5, 0, 0.7);
+    const felt = Mt(0x8a6d45);
+    a(latheSmooth([[0.001,0.28],[0.16,0.27],[0.24,0.2],[0.29,0.06],[0.31,0.0],[0.58,-0.01],[0.62,-0.035],[0.58,-0.05],[0.3,-0.04],[0.001,-0.04]], 40, 40), felt, 0, headY + 0.22, 0);
+    a(new THREE.TorusGeometry(0.3, 0.025, 8, 36), dark, 0, headY + 0.25, 0, 1, 1, 1, Math.PI/2);
+    a(new THREE.ConeGeometry(0.15, 0.2, 24), accent, 0, 0.6, 0.28, 1, 1, 0.45, Math.PI);
+    a(new THREE.CylinderGeometry(0.05, 0.05, 0.015, 24), Mt(0xe0b347, 0x5a4410, 0.3), 0.15, 0.46, 0.35, 1, 1, 1, Math.PI/2);
+    [-1,1].forEach(sx => a(S(1, 16, 12), Mt(0x4f5c33), 0.14*sx, 0.34, 0.33, 0.07, 0.06, 0.02));
+    a(new THREE.TorusGeometry(0.378, 0.03, 10, 40), dark, 0, 0.06, 0, 1, 1, 1, Math.PI/2);
+    a(capsuleGeo(0.04, 0.1, 12), dark, 0.39, 0.12, 0.05);
+    a(S(1, 28, 20), Mt(0x4a5236), 0, 0.36, -0.31, 0.2, 0.24, 0.12);
   }
-  const limb = (px, py, len, r, mat, parent, endMat) => {
+  const limb = (px, py, len, r, mat, parent, end) => {
     const pivot = new THREE.Group(); pivot.position.set(px, py, 0); parent.add(pivot);
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), mat); m.position.y = -len/2; pivot.add(m);
-    const e = new THREE.Mesh(endMat.geo, endMat.mat); e.position.set(0, -len - 0.02, endMat.z || 0); pivot.add(e);
+    const m = new THREE.Mesh(capsuleGeo(r, len - r, 18), mat); m.position.y = -len/2; pivot.add(m);
+    const e = new THREE.Mesh(end.geo, end.mat); e.position.set(0, -len - 0.03, end.z || 0); e.scale.set(end.sx || 1, end.sy || 1, end.sz || 1); pivot.add(e);
     return pivot;
   };
-  const shoe = { geo: new THREE.BoxGeometry(0.18, 0.12, 0.3), mat: Mt(shoeC), z: 0.05 };
-  const hand = { geo: new THREE.SphereGeometry(0.075, 8, 6), mat: skin };
-  const pants = Mt(pantsC);
-  const legL = limb(-0.15, 0.6, 0.5, job === 'bandit' ? 0.12 : 0.1, pants, root, shoe), legR = limb(0.15, 0.6, 0.5, job === 'bandit' ? 0.12 : 0.1, pants, root, shoe);
-  const armL = limb(-0.38, 0.56, 0.46, 0.075, shirt, upper, hand), armR = limb(0.38, 0.56, 0.46, 0.075, shirt, upper, hand);
-  if(job === 'bandit') [legL, legR].forEach(l => a(new THREE.CylinderGeometry(0.105, 0.1, 0.16, 8), Mt(0xf2efe6), 0, -0.4, 0, 1, 1, 1, 0, 0, 0, l));
-  if(job === 'influencer'){
-    a(new THREE.CylinderGeometry(0.014, 0.014, 0.95, 6), Mt(0x2a2a2a), 0, -0.95, 0, 1, 1, 1, 0, 0, 0, armR);
-    a(new THREE.BoxGeometry(0.13, 0.22, 0.02), Mt(0x161616, 0x0a1a2a), 0, -1.45, 0.03, 1, 1, 1, 0.3, 0, 0, armR);
-  }
+  const shoe = { geo: S(0.11, 24, 16), mat: Mt(shoeC, 0, 0.7), z: 0.05, sx: 0.95, sy: 0.6, sz: 1.45 };
+  const hand = { geo: S(0.082, 20, 14), mat: skin };
+  const pants = Mt(pantsC), lr = job === 'dokkaebi' ? 0.12 : 0.1;
+  const legL = limb(-0.15, 0.62, 0.5, lr, pants, root, shoe), legR = limb(0.15, 0.62, 0.5, lr, pants, root, shoe);
+  const armL = limb(-0.37, 0.55, 0.44, 0.078, shirt, upper, hand), armR = limb(0.37, 0.55, 0.44, 0.078, shirt, upper, hand);
+  if(job === 'dokkaebi') [legL, legR].forEach(l => a(new THREE.TorusGeometry(0.115, 0.04, 10, 24), Mt(0xf2efe6), 0, -0.4, 0, 1, 1, 1, Math.PI/2, 0, 0, l));
+  if(job === 'ranger'){ const w = a(capsuleGeo(0.03, 0.06, 10), Mt(0xd8d8d8, 0x222222, 0.25), 0, -0.5, 0.06, 1, 1, 1, Math.PI/2, 0, 0, armR); w.visible = false; root.userData.whistle = w; }
   armL.rotation.z = -0.12; armR.rotation.z = 0.12;
   root.traverse(m => { if(m.isMesh) m.castShadow = true; });
   scene.add(root);
-  return { root, upper, legL, legR, armL, armR, phase: 0, spd: 0, jacketMat: accent, waveT: 0, cheerT: 0, job };
+  return { root, upper, legL, legR, armL, armR, eyes, phase: 0, spd: 0, jacketMat: accent, waveT: 0, cheerT: 0, grabT: 0, whistleT: 0, blinkT: 2 + Math.random()*3, job };
 }
 function animHiker(h, dt, spd, t){
   h.spd += (spd - h.spd) * Math.min(1, dt*8);
@@ -923,7 +939,11 @@ function animHiker(h, dt, spd, t){
   h.armL.rotation.x = -sw*0.8; h.armR.rotation.x = sw*0.8;
   h.upper.position.y = 0.62 + Math.abs(Math.sin(h.phase))*0.05*amt + Math.sin(t*2)*0.006;
   h.armR.rotation.z = 0.12; h.armL.rotation.z = -0.12;
-  if(h.job === 'influencer' && !(h.waveT > 0) && !(h.cheerT > 0)){ h.armR.rotation.x = -1.95 + Math.sin(t*1.3)*0.05; h.armR.rotation.z = 0.3; }
+  h.blinkT -= dt; const bl = h.blinkT < 0.12 ? 0.15 : 1; if(h.blinkT < 0) h.blinkT = 2.5 + Math.random()*3.5;
+  if(h.eyes) h.eyes.forEach(e => e.scale.y = 1.15*bl);
+  if(h.grabT > 0){ h.grabT -= dt; const k = Math.sin(Math.min(1, (0.7 - h.grabT)/0.7)*Math.PI); h.armR.rotation.x = -1.5*k; h.armR.rotation.z = 0.12 - 0.5*k; }
+  if(h.whistleT > 0){ h.whistleT -= dt; h.armR.rotation.x = -2.55; h.armR.rotation.z = -0.55; }
+  if(h.root.userData.whistle) h.root.userData.whistle.visible = h.whistleT > 0;
   if(h.waveT > 0){ h.waveT -= dt; h.armR.rotation.x = -2.75; h.armR.rotation.z = 0.15 + 0.4*Math.sin(t*11); }
   if(h.cheerT > 0){ h.cheerT -= dt; h.armL.rotation.x = -2.9; h.armR.rotation.x = -2.9; h.armL.rotation.z = -0.35; h.armR.rotation.z = 0.35;
     h.upper.position.y += Math.max(0, Math.sin((1.6 - h.cheerT)*8))*0.08; }
@@ -1068,6 +1088,23 @@ const Sound = {
     g.gain.exponentialRampToValueAtTime(0.0001, t + 1.0);
     s.connect(lp); lp.connect(g); g.connect(this.master); s.start(t, Math.random()*2, 1.1);
   },
+  swoosh(){
+    const ctx = this.ctx; if(!ctx || !this.on) return;
+    const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = this.white;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.2; bp.frequency.setValueAtTime(600, t); bp.frequency.exponentialRampToValueAtTime(4200, t + 0.25);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.14, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    s.connect(bp); bp.connect(g); g.connect(this.master); s.start(t, Math.random()*2, 0.35);
+  },
+  whistle(){
+    const ctx = this.ctx; if(!ctx || !this.on) return;
+    const t = ctx.currentTime;
+    [[0, 0.22], [0.3, 0.55]].forEach(([d, len]) => {
+      const o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = 2900; lfo.frequency.value = 34; lg.gain.value = 160; lfo.connect(lg); lg.connect(o.frequency);
+      g.gain.setValueAtTime(0.0001, t+d); g.gain.exponentialRampToValueAtTime(0.06, t+d+0.02); g.gain.setValueAtTime(0.06, t+d+len-0.04); g.gain.exponentialRampToValueAtTime(0.0001, t+d+len);
+      o.connect(g); g.connect(this.master); o.start(t+d); lfo.start(t+d); o.stop(t+d+len+0.05); lfo.stop(t+d+len+0.05);
+    });
+  },
   chime(){
     const ctx = this.ctx; if(!ctx || !this.on) return;
     const t = ctx.currentTime;
@@ -1170,7 +1207,7 @@ function connect(){
   };
   ws.onmessage = (ev) => {
     let m; try { m = JSON.parse(ev.data); } catch(e){ return; }
-    if(m.t === 'welcome'){ Net.peers.clear(); (m.peers || []).forEach(p => Net.peers.set(p.id, p.s || {})); }
+    if(m.t === 'welcome'){ Net.myId = m.id; Net.peers.clear(); (m.peers || []).forEach(p => Net.peers.set(p.id, p.s || {})); }
     else if(m.t === 'p') Net.peers.set(m.id, m.s || {});
     else if(m.t === 'leave') Net.peers.delete(m.id);
     else return;
@@ -1179,6 +1216,7 @@ function connect(){
   ws.onclose = () => { if(Net.ws === ws) Net.ws = null; Online.room = null; Online.status = 'connecting'; Net.peers.clear(); pushPeers(); retry(); };
   ws.onerror = () => { try { ws.close(); } catch(e){} };
 }
+function myPeerId(){ return Net.myId || null; }
 function retry(){ if(Online.away) return; setTimeout(connect, Net.backoff); Net.backoff = Math.min(15000, Net.backoff*1.7); }
 function pushPeers(){ syncPeers([...Net.peers].map(([id, s]) => ({ peer: id, by: null, isMe: false, sameTab: false, kind: 'viewer', guest: false, presence: s }))); }
 async function resolveNames(ids){
@@ -1202,11 +1240,12 @@ function syncPeers(peers){
     seen.add(p.peer);
     let r = Online.remotes.get(p.peer);
     if(!r){
-      const h = makeHiker({ jacket: JACKETS[0], pants: 0x3b4a5a, hat: 0xf4efe4, pack: 0x4f7c6a, job: JOBS[pr.j] ? pr.j : 'hiker' });
+      const h = makeHiker({ jacket: JACKETS[0], pants: 0x3b4a5a, hat: 0xf4efe4, pack: 0x4f7c6a, job: jobOf(pr.j) });
       r = { h, x: pr.x, z: pr.z, f: +pr.f || 0, c: -1, name: '', tag: null, et: pr.et, bubble: makeBubble() };
       h.root.add(r.bubble); Online.remotes.set(p.peer, r);
+      processActions(r, pr, p.peer, true);
     } else if(pr.et !== r.et){ r.et = pr.et; emoteOn(r.h, r.bubble, String(pr.e || '')); }
-    const pj = JOBS[pr.j] ? pr.j : 'hiker';
+    const pj = jobOf(pr.j);
     if(r.h.job !== pj){
       scene.remove(r.h.root); r.h.root.remove(r.bubble);
       r.h = makeHiker({ jacket: JACKETS[r.c < 0 ? 0 : r.c], job: pj }); r.h.root.add(r.bubble);
@@ -1216,6 +1255,7 @@ function syncPeers(peers){
     r.v = clamp(+pr.v || 0, 0, 8); r.el = clamp(+pr.el || 0, 0, 2000); r.tr = clamp(+pr.tr || 0, 0, 8) | 0; r.by = p.by;
     const ci = Math.abs(pr.c | 0) % JACKETS.length; if(r.c !== ci){ r.c = ci; r.h.jacketMat.color.setHex(JACKETS[ci]); }
     r.nick = cleanName(pr.n);
+    if(r.name) processActions(r, pr, p.peer, false);
     if(!r.nick && p.by && !Online.names[p.by]) need.push(p.by);
     updateRemoteName(r);
   }
@@ -1235,6 +1275,7 @@ function sendPresence(dt){
   if(!Online.room || !started) return;
   Online.sendT -= dt; if(Online.sendT > 0) return; Online.sendT = 0.1;
   const o = { x: +px.toFixed(2), z: +pz.toFixed(2), f: +facing.toFixed(2), v: +player.spd.toFixed(1), c: myColor, n: myName, e: Online.emote, et: Online.emoteAt, el: ELEV(py), tr: tFoundNow, mt: M.id, j: myJob };
+  Object.assign(o, actionsForPresence());
   const key = JSON.stringify(o); if(key === Online.sentKey) return;
   Online.sentKey = key; Online.room.presence(o).catch(() => {});
 }
@@ -1412,7 +1453,7 @@ function buildTreasures(){
   });
   refreshTreasureHUD();
 }
-function resetTreasures(){ tFoundNow = 0; tNewIds.clear(); tItems.forEach(it => { it.found = false; it.hinted = false; it.anim = 0; it.g.visible = true; it.g.scale.set(1,1,1); it.g.position.y = it.y; }); refreshTreasureHUD(); }
+function resetTreasures(){ Act.stolen = 0; tFoundNow = 0; tNewIds.clear(); tItems.forEach(it => { it.found = false; it.hinted = false; it.anim = 0; it.g.visible = true; it.g.scale.set(1,1,1); it.g.position.y = it.y; }); refreshTreasureHUD(); }
 function refreshTreasureHUD(){ $('tCount').textContent = tFoundNow + '/' + TREASURES.length; }
 function updateTreasures(dt, t){
   tItems.forEach((it, i) => {
@@ -1457,6 +1498,60 @@ function openTreasureBook(){
     d.append(ic, b, p); grid.appendChild(d);
   });
   $('tbook').classList.remove('hidden');
+}
+
+/* ---------- 산도깨비 & 관리인 ---------- */
+const Act = { st: null, wh: null, ak: null, cool: 0, target: null, kind: '', stolen: 0 };
+function actionsForPresence(){ const o = {}; if(Act.st) o.st = Act.st; if(Act.wh) o.wh = Act.wh; if(Act.ak) o.ak = Act.ak; return o; }
+function processActions(r, pr, peer, fresh){
+  const me = myPeerId(); const seen = (k) => { const v = pr[k] && pr[k].at; const old = r['l_' + k]; r['l_' + k] = v; return !fresh && v && v !== old && pr[k].to === me; };
+  if(fresh){ ['st','wh','ak'].forEach(k => r['l_' + k] = pr[k] && pr[k].at); return; }
+  if(!me) return;
+  if(seen('st')){
+    r.h.grabT = 0.7; Sound.swoosh();
+    const ok = tFoundNow > 0 && myJob !== 'dokkaebi';
+    if(ok){ tFoundNow--; refreshTreasureHUD(); toast('🎭 ' + r.name.replace(/^\S+\s/, '') + '에게 보물 하나를 뺏겼어요!', 3.5); }
+    else toast('🎭 산도깨비가 슬쩍하려다 빈손으로 갔어요', 3);
+    Act.ak = { to: peer, at: Date.now(), ok: ok ? 1 : 0 }; Online.sendT = 0;
+  }
+  if(seen('ak')){
+    if(pr.ak.ok){ tFoundNow++; Act.stolen++; refreshTreasureHUD(); toast('🎭 보물을 슬쩍했어요! ✦' + tFoundNow, 3); Sound.chime(); }
+    else toast('빈 배낭이었어요. 다른 사람을 노려봐요', 3);
+  }
+  if(seen('wh')){
+    r.h.whistleT = 1.2; Sound.whistle();
+    if(myJob === 'dokkaebi'){
+      tFoundNow = Math.max(0, tFoundNow - Act.stolen); Act.stolen = 0; refreshTreasureHUD();
+      toast('📣 관리인에게 걸렸어요! 훔친 보물을 내려놓고 입구로 돌아가요', 4.5);
+      setTimeout(() => { if(started){ resetToStart(); camInit = false; } }, 1200);
+    }
+  }
+}
+function updateActionButton(dt){
+  Act.cool = Math.max(0, Act.cool - dt);
+  const btn = $('btnAct'); let target = null, kind = '';
+  if(started && Online.remotes.size){
+    let best = 1e9;
+    Online.remotes.forEach((r, peer) => {
+      const d = Math.hypot(r.x - px, r.z - pz);
+      if(myJob === 'dokkaebi' && r.h.job !== 'dokkaebi' && d < 3.2 && d < best){ best = d; target = peer; kind = 'steal'; }
+      if(myJob === 'ranger' && r.h.job === 'dokkaebi' && d < 4.5 && d < best){ best = d; target = peer; kind = 'whistle'; }
+    });
+  }
+  Act.target = target; Act.kind = kind;
+  const show = !!target;
+  btn.classList.toggle('hidden', !show);
+  if(show){
+    const r = Online.remotes.get(target), wait = Act.cool > 0;
+    btn.disabled = wait;
+    btn.textContent = kind === 'steal' ? (wait ? '🫳 숨 고르는 중…' : '🫳 ' + (r.tr ? '슬쩍하기 (✦' + r.tr + ')' : '슬쩍하기')) : (wait ? '📣 …' : '📣 호루라기');
+  }
+}
+function doAction(){
+  if(!Act.target || Act.cool > 0) return;
+  if(Act.kind === 'steal'){ Act.st = { to: Act.target, at: Date.now() }; Act.cool = 15; player.grabT = 0.7; Sound.swoosh(); }
+  else if(Act.kind === 'whistle'){ Act.wh = { to: Act.target, at: Date.now() }; Act.cool = 8; player.whistleT = 1.2; Sound.whistle(); }
+  Online.sendT = 0;
 }
 
 /* ---------- UI ---------- */
@@ -1605,10 +1700,11 @@ joyEl.addEventListener('pointerup', joyEnd); joyEl.addEventListener('pointercanc
 if(isTouch) joyEl.classList.remove('hidden');
 addEventListener('touchstart', () => joyEl.classList.remove('hidden'), { once: true, passive: true });
 
-try { const sv = JSON.parse(localStorage.getItem('sanhaeng2') || '{}'); if(sv.n) $('nick').value = cleanName(sv.n); if(sv.c >= 0 && sv.c < JACKETS.length) myColor = sv.c; if(JOBS[sv.j]) myJob = sv.j; } catch(e){}
+try { const sv = JSON.parse(localStorage.getItem('sanhaeng2') || '{}'); if(sv.n) $('nick').value = cleanName(sv.n); if(sv.c >= 0 && sv.c < JACKETS.length) myColor = sv.c; myJob = jobOf(sv.j); } catch(e){}
 function setPlayerJob(job){
-  myJob = JOBS[job] ? job : 'hiker';
+  myJob = jobOf(job);
   document.querySelectorAll('#jobs .job').forEach(b => b.classList.toggle('sel', b.dataset.j === myJob));
+  $('jobDesc').textContent = JOBS[myJob].desc;
   if(!player || player.job === myJob) return;
   const old = player; scene.remove(old.root);
   player = makeHiker({ jacket: JACKETS[myColor], job: myJob });
@@ -1618,7 +1714,7 @@ function setPlayerJob(job){
 }
 JOB_IDS.forEach(id => {
   const b = document.createElement('button'); b.className = 'job' + (id === myJob ? ' sel' : ''); b.dataset.j = id;
-  b.textContent = JOBS[id].ic + ' ' + JOBS[id].name;
+  b.textContent = JOBS[id].ic + ' ' + JOBS[id].name; b.title = JOBS[id].desc;
   b.addEventListener('click', () => setPlayerJob(id));
   $('jobs').appendChild(b);
 });
@@ -1642,6 +1738,8 @@ $('btnInvite').addEventListener('click', () => {
 $('btnTreasure').addEventListener('click', openTreasureBook);
 $('btnTbookClose').addEventListener('click', () => { $('tbook').classList.add('hidden'); tNewIds.clear(); });
 $('btnAuto').addEventListener('click', () => setAuto(!auto));
+$('btnAct').addEventListener('click', doAction);
+addEventListener('keydown', e => { if(started && e.code === 'KeyE' && e.target !== $('nick')) doAction(); });
 $('btnSound').addEventListener('click', () => { const on = Sound.toggle(); $('btnSound').innerHTML = on ? ICON_ON : ICON_OFF; });
 $('btnHelp').addEventListener('click', () => $('help').classList.remove('hidden'));
 $('btnHelpClose').addEventListener('click', () => $('help').classList.add('hidden'));
@@ -1686,6 +1784,7 @@ function frame(now){
   sunGlow.position.copy(camera.position).addScaledVector(sunDir, 700);
   sun.position.set(px + sunDir.x*120, py + sunDir.y*120, pz + sunDir.z*120); sun.target.position.set(px, py, pz); sun.target.updateMatrixWorld();
   if(started){ updateHUD(dt); updatePlayers(dt); }
+  updateActionButton(dt);
   renderer.render(scene, camera);
 }
 
@@ -1753,7 +1852,7 @@ function boot(){
   const npcDefs = [
     { name: '산들',   jacket: 0x5b8fd1, pants: 0x46505a, hat: 0xf4efe4, pack: 0xc9604a, speed: 2.1, s: 0.18 },
     { name: '솔바람', job: 'ranger', jacket: 0xe2463c, pants: 0x3a3f4a, hat: 0x6f9a4f, pack: 0xe0b347, speed: 1.7, s: 0.45 },
-    { name: '다람쥐', job: 'influencer', jacket: 0xd8608f, pants: 0x5a4636, hat: 0xd65a4a, pack: 0x3f6a8a, speed: 2.4, s: 0.7 }
+    { name: '다람쥐', jacket: 0xd8608f, pants: 0x5a4636, hat: 0xd65a4a, pack: 0x3f6a8a, speed: 2.4, s: 0.7 }
   ];
   npcs = npcDefs.map((d,i) => { const h = makeHiker(d); h.root.add(nameTag(d.name)); return { h, speed: d.speed, s: 0, frac: d.s, off: i%2 ? 0.75 : -0.75, rest: 0 }; });
   myBubble = makeBubble(); player.root.add(myBubble);

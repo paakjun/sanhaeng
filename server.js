@@ -41,6 +41,8 @@ const server = http.createServer((req, res) => {
 
 const cleanRoom = (r) => (String(r || 'lobby').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32)) || 'lobby';
 const num = (v, lo, hi, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
+const act = (a) => (a && typeof a === 'object' && typeof a.to === 'string' && /^[a-z0-9]{1,24}$/i.test(a.to))
+  ? { to: a.to, at: num(a.at, 0, 1e15), ok: a.ok ? 1 : 0 } : undefined;
 function sanitize(s) {
   if (!s || typeof s !== 'object') return null;
   return {
@@ -50,7 +52,8 @@ function sanitize(s) {
     e: EMOTES.has(s.e) ? s.e : '', et: num(s.et, 0, 1e15),
     tr: num(s.tr, 0, 8) | 0,
     mt: MOUNTAINS.includes(s.mt) ? s.mt : '',
-    j: ['hiker', 'bandit', 'ranger', 'influencer'].includes(s.j) ? s.j : 'hiker',
+    j: ['hiker', 'dokkaebi', 'ranger'].includes(s.j) ? s.j : 'hiker',
+    st: act(s.st), wh: act(s.wh), ak: act(s.ak),
   };
 }
 const send = (ws, m) => { if (ws.readyState === 1) ws.send(JSON.stringify(m)); };
