@@ -94,6 +94,16 @@
   .titem b { display:block; font-size:14px; margin:2px 0; }
   .titem.no { opacity:.55; }
   .titem.new { box-shadow:0 0 0 2px #e0a73a inset; }
+  .mts { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; max-width:min(94vw, 680px); margin:0 0 20px; }
+  #start .mt { width:clamp(96px, 28vw, 116px); padding:9px 10px 8px; border-radius:16px; text-align:left; font-family:inherit; font-size:12px; cursor:pointer; box-shadow:none;
+               background:rgba(250,246,236,0.18); color:#fffaf0; border:1.5px solid rgba(255,255,255,0.4); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  #start .mt.sel { background:#f6f0e2; color:#2f4a35; border-color:#f6f0e2; }
+  #start .mt b { display:block; font-family:"Gowun Batang", serif; font-size:18px; letter-spacing:0.05em; }
+  #start .mt span { display:block; line-height:1.45; opacity:.9; }
+  #start .mt .live { color:#ffd27a; margin-top:2px; }
+  #start .mt.sel .live { color:#b4532c; }
+  #start p { margin:10px 0 16px !important; }
+  #card .title { letter-spacing:0.12em !important; }
 </style>
 </head>
 <body>
@@ -101,7 +111,7 @@
 
 <div id="hud" class="hidden">
   <div id="card">
-    <div class="title">산행</div>
+    <div class="title" id="cardTitle">산행</div>
     <div class="bar"><div id="barFill"></div></div>
     <div id="stats">해발 -m · 정상까지 -</div>
     <button id="btnTreasure">✦ 보물 <span id="tCount">0/8</span></button>
@@ -124,7 +134,8 @@
 
 <div id="start">
   <h1>산행</h1>
-  <p>새소리와 바람 소리를 들으며<br>등산로를 따라 천천히, 정상까지.</p>
+  <p id="mtDesc">새소리와 바람 소리를 들으며, 등산로를 따라 천천히 정상까지.</p>
+  <div class="mts" id="mts"></div>
   <div class="setup">
     <div class="nickrow"><input id="nick" maxlength="10" placeholder="산에서 쓸 이름" autocomplete="off" enterkeyhint="done"><button id="btnDice" class="dice" aria-label="이름 다시 뽑기">🎲</button></div>
     <div class="swatches" id="swatches"></div>
@@ -141,6 +152,7 @@
     <div class="row">
       <button id="btnStay" class="primary">조금 더 머물기</button>
       <button id="btnRestart">처음부터 다시 오르기</button>
+      <button id="btnOther">다른 산 가기</button>
     </div>
   </div>
 </div>
@@ -163,6 +175,7 @@
       <li>PC: WASD 또는 방향키, Shift로 빠르게</li>
       <li>화면을 드래그하면 둘러보기 · 두 손가락/휠로 거리 조절</li>
       <li>‘길 따라 걷기’를 켜면 알아서 등산로를 따라 올라가요</li>
+      <li>걷다 보면 다람쥐·산토끼·고라니·꿩이 튀어나와요. 가까이 가면 놀라서 달아나요</li>
       <li>길옆 어딘가에 보물 8개가 숨어 있어요. 반짝이는 곳으로 가까이 가면 주워져요</li>
     </ul>
     <h3>함께 걷기</h3>
@@ -200,35 +213,62 @@ function smoothstep(a,b,x){ const t = Math.min(1, Math.max(0, (x-a)/(b-a))); ret
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function angDiff(a,b){ return Math.atan2(Math.sin(a-b), Math.cos(a-b)); }
 
+/* ---------- 한국의 명산 ---------- */
+// 높이·거리는 실제 정상 해발과 대표 탐방로 길이에 맞춘 근사치예요.
+const MOUNTAINS = [
+  { id:'bukhansan',  name:'북한산', peak:'백운대', elev:836,  start:300, km:2.4, trailhead:'백운대탐방지원센터',
+    desc:'서울 곁의 화강암 봉우리. 하얀 바위 사이로 오르는 길', tag:'바위 · 소나무',
+    h:72, w:78, ridge:16, rocky:1.2, pine:0.6, palette:'mixed', extra:'granite', turns:1.35, endR:1.5, seed:836 },
+  { id:'seoraksan',  name:'설악산', peak:'대청봉', elev:1708, start:450, km:5.0, trailhead:'오색',
+    desc:'뾰족한 암봉과 불타는 단풍. 설악의 가을', tag:'암봉 · 단풍',
+    h:94, w:70, ridge:26, rocky:1.0, pine:0.38, palette:'fire', extra:'spires', turns:1.6, endR:1.5, seed:1708 },
+  { id:'jirisan',    name:'지리산', peak:'천왕봉', elev:1915, start:600, km:5.4, trailhead:'중산리',
+    desc:'넉넉한 어머니의 산. 발아래로 구름바다가 펼쳐져요', tag:'능선 · 운해',
+    h:86, w:105, ridge:13, rocky:0.6, pine:0.55, palette:'mixed', extra:'cloudsea', turns:1.3, endR:1.5, seed:1915 },
+  { id:'hallasan',   name:'한라산', peak:'백록담', elev:1947, start:750, km:9.6, trailhead:'성판악',
+    desc:'제주 한가운데 화산. 정상에서 하늘을 담은 백록담을 만나요', tag:'화산 · 구상나무',
+    h:90, w:118, ridge:7, rocky:0.7, pine:0.82, palette:'late', extra:'crater', turns:1.2, endR:13, seed:1947 },
+  { id:'naejangsan', name:'내장산', peak:'신선봉', elev:763,  start:150, km:3.2, trailhead:'내장사',
+    desc:'가장 붉은 단풍길. 가을이 제일 예쁜 산', tag:'단풍 명소',
+    h:64, w:76, ridge:18, rocky:0.45, pine:0.22, palette:'maple', extra:'maples', turns:1.45, endR:1.5, seed:763 },
+];
+const MT_BY_ID = Object.fromEntries(MOUNTAINS.map(m => [m.id, m]));
+let M = MOUNTAINS[0];
+
 /* ---------- terrain shape ---------- */
 function hRaw(x,z){
   const r = Math.hypot(x,z);
-  const mountain = 78 * Math.exp(-(r*r)/(2*82*82));
-  const ridge = fbm(x*0.008+3.1, z*0.008-1.7, 4) * 20 * smoothstep(8, 60, r);
-  const hills = (fbm(x*0.006+9.0, z*0.006+4.0, 3)*0.5+0.5) * 55 * smoothstep(200, 330, r);
-  const small = fbm(x*0.06, z*0.06, 3) * 1.4;
-  return mountain + ridge + hills + small;
+  let h = M.h * Math.exp(-(r*r)/(2*M.w*M.w));
+  h += fbm(x*0.008+3.1+M.seed*0.01, z*0.008-1.7, 4) * M.ridge * smoothstep(8, 60, r);
+  h += (fbm(x*0.006+9.0, z*0.006+4.0, 3)*0.5+0.5) * 55 * smoothstep(200, 330, r);
+  h += fbm(x*0.06, z*0.06, 3) * 1.4;
+  if(M.extra === 'crater'){ h += 3.2*Math.exp(-((r-12)*(r-12))/(2*9)) - 10*(1 - smoothstep(3, 11, r)); }
+  return h;
 }
 
 /* ---------- the trail ---------- */
-const N = 900, path = [], ph = new Float32Array(N), cum = new Float32Array(N);
-for(let i=0;i<N;i++){
-  const t = i/(N-1);
-  const a = 0.6 + t*TAU*1.45 + 0.25*Math.sin(t*9);
-  const r = 1.5 + 168*Math.pow(1-t, 1.05) + 4*Math.sin(t*31)*(1-t);
-  path.push({ x: r*Math.cos(a), z: r*Math.sin(a) });
-}
-for(let i=0;i<N;i++) ph[i] = hRaw(path[i].x, path[i].z);
-for(let pass=0; pass<8; pass++){
-  const tmp = Float32Array.from(ph);
-  for(let i=0;i<N;i++){ let s=0,c=0; for(let j=i-8;j<=i+8;j++){ if(j>=0&&j<N){ s+=tmp[j]; c++; } } ph[i]=s/c; }
-}
-for(let i=1;i<N;i++) cum[i] = cum[i-1] + Math.hypot(path[i].x-path[i-1].x, path[i].z-path[i-1].z);
-const total = cum[N-1];
-
-const CELL = 8, grid = new Map();
+const N = 900;
+let path = [], ph = new Float32Array(N), cum = new Float32Array(N), total = 1, grid = new Map(), Y0 = 0, YS = 1, METERS = 2.4;
+const CELL = 8;
 const gkey = (cx,cz) => cx*10007 + cz;
-path.forEach((p,i) => { const k = gkey(Math.floor(p.x/CELL), Math.floor(p.z/CELL)); if(!grid.has(k)) grid.set(k, []); grid.get(k).push(i); });
+function genPath(){
+  path = []; ph = new Float32Array(N); cum = new Float32Array(N); grid = new Map();
+  for(let i=0;i<N;i++){
+    const t = i/(N-1);
+    const a = 0.6 + (M.seed%7)*0.7 + t*TAU*M.turns + 0.25*Math.sin(t*9);
+    const r = M.endR + (168 - M.endR)*Math.pow(1-t, 1.05) + 4*Math.sin(t*31)*(1-t);
+    path.push({ x: r*Math.cos(a), z: r*Math.sin(a) });
+  }
+  for(let i=0;i<N;i++) ph[i] = hRaw(path[i].x, path[i].z);
+  for(let pass=0; pass<8; pass++){
+    const tmp = Float32Array.from(ph);
+    for(let i=0;i<N;i++){ let s=0,c=0; for(let j=i-8;j<=i+8;j++){ if(j>=0&&j<N){ s+=tmp[j]; c++; } } ph[i]=s/c; }
+  }
+  for(let i=1;i<N;i++) cum[i] = cum[i-1] + Math.hypot(path[i].x-path[i-1].x, path[i].z-path[i-1].z);
+  total = cum[N-1];
+  path.forEach((p,i) => { const k = gkey(Math.floor(p.x/CELL), Math.floor(p.z/CELL)); if(!grid.has(k)) grid.set(k, []); grid.get(k).push(i); });
+  Y0 = ph[0]; YS = ph[N-1]; METERS = M.km*1000/total;
+}
 
 function nearest(x,z){
   const cx = Math.floor(x/CELL), cz = Math.floor(z/CELL);
@@ -256,8 +296,7 @@ function pointAt(s){
   const seg = (cum[hi]-cum[lo]) || 1, f = (s-cum[lo])/seg, a = path[lo], b = path[hi];
   return { x: a.x+(b.x-a.x)*f, z: a.z+(b.z-a.z)*f, tx: (b.x-a.x)/seg, tz: (b.z-a.z)/seg };
 }
-const ELEV = y => Math.round(180 + y*8.5);
-const METERS = 2.4;
+const ELEV = y => Math.max(0, Math.round(M.start + (y - Y0)/((YS - Y0) || 1)*(M.elev - M.start)));
 
 /* ---------- renderer / scene ---------- */
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, powerPreference: 'high-performance' });
@@ -333,7 +372,7 @@ function instanced(geo, mat, count, opts){
   m.count = count; m.frustumCulled = false;
   if(opts && opts.cast) m.castShadow = true;
   if(opts && opts.receive) m.receiveShadow = true;
-  scene.add(m); return m;
+  world.add(m); return m;
 }
 function textTex(lines, w, h, bg, fg, border){
   const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
@@ -347,9 +386,11 @@ function textTex(lines, w, h, bg, fg, border){
 const fmtDist = m => m >= 1000 ? (m/1000).toFixed(1) + 'km' : Math.round(m/10)*10 + 'm';
 
 const ribbons = [], benches = [], clouds = [];
+let world = null;
 let summitPos, summitY;
 
 function buildWorld(){
+  world = new THREE.Group(); scene.add(world);
   /* terrain */
   const SIZE = 600, SEG = isTouch ? 230 : 280;
   const geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG); geo.rotateX(-Math.PI/2);
@@ -362,7 +403,7 @@ function buildWorld(){
     let c = mix(g1, g2, fbm(x*0.04, z*0.04, 3)*0.5+0.5);
     c = mix(c, dry, smoothstep(0.1, 0.45, fbm(x*0.02+5, z*0.02-3, 3)) * 0.7);
     c = mix(c, rust, smoothstep(0.2, 0.5, fbm(x*0.013-7, z*0.013+2, 3)) * 0.45);
-    c = mix(c, rock, smoothstep(60, 82, y) * 0.65);
+    c = mix(c, rock, smoothstep(M.h*0.72, M.h*1.02, y) * (M.extra === 'crater' ? 0.85 : 0.65));
     if(n){
       c = mix(c, edge, (1 - smoothstep(2.2, 3.6, n.d)) * 0.5);
       c = mix(c, dirt, 1 - smoothstep(1.2, 2.5, n.d));
@@ -373,7 +414,7 @@ function buildWorld(){
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   geo.computeVertexNormals();
   const ground = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
-  ground.receiveShadow = true; scene.add(ground);
+  ground.receiveShadow = true; world.add(ground);
 
   /* trees */
   const pines = [], leafy = [];
@@ -383,9 +424,10 @@ function buildWorld(){
     if(Math.hypot(x,z) < 13) continue;
     const dn = fbm(x*0.03, z*0.03, 3)*0.5+0.5;
     if(rand() > 0.15 + dn*0.95) continue;
-    const y = height(x,z); if(y > 74 && rand() < 0.6) continue;
+    const y = height(x,z); if(y > M.h*0.92 && rand() < 0.6) continue;
+    if(M.extra === 'maples' && n && n.d < 14 && rand() < 0.5){ leafy.push({ x, y: y-0.15, z, ry: rand()*TAU, s: rr(0.9, 1.5), sy: rr(0.9, 1.25) }); continue; }
     const t = { x, y: y-0.15, z, ry: rand()*TAU, s: rr(0.8, 1.45), sy: rr(0.9, 1.25) };
-    (rand() < 0.42 + smoothstep(40, 75, y)*0.3 ? pines : leafy).push(t);
+    (rand() < M.pine + smoothstep(M.h*0.5, M.h*0.95, y)*0.3 ? pines : leafy).push(t);
   }
   const all = pines.concat(leafy);
   const trunkGeo = new THREE.CylinderGeometry(0.12, 0.2, 1.8, 6); trunkGeo.translate(0, 0.9, 0);
@@ -393,7 +435,7 @@ function buildWorld(){
   all.forEach((t,i) => setInst(trunks, i, t.x, t.y, t.z, t.ry, t.s, t.sy));
 
   const foliage = swayMaterial({ color: 0xffffff });
-  const pineGreens = ['#2f5d3a','#3b6b40','#29523a','#355f34','#456f3e'].map(c => new THREE.Color(c));
+  const pineGreens = (M.extra === 'crater' ? ['#24463a','#2c5244','#1f3f36','#33584a'] : ['#2f5d3a','#3b6b40','#29523a','#355f34','#456f3e']).map(c => new THREE.Color(c));
   const layers = [[1.35, 1.9, 2.2], [1.05, 1.6, 3.2], [0.72, 1.3, 4.1]];
   layers.forEach(([rad, hh, yy], li) => {
     const g = new THREE.ConeGeometry(rad, hh, 7); g.translate(0, yy, 0);
@@ -401,7 +443,12 @@ function buildWorld(){
     pines.forEach((t,i) => { setInst(m, i, t.x, t.y, t.z, t.ry + li, t.s, t.sy); const c = pineGreens[i % pineGreens.length].clone(); c.offsetHSL(0, 0, li*0.025); m.setColorAt(i, c); });
     if(m.instanceColor) m.instanceColor.needsUpdate = true;
   });
-  const autumn = ['#c94f2c','#e07b2f','#eaa53a','#d9c24a','#8fa83f','#b8432f','#6f9a3e','#d46a33','#e3b947','#7f9b3a'].map(c => new THREE.Color(c));
+  const PALETTES = {
+    mixed: ['#c94f2c','#e07b2f','#eaa53a','#d9c24a','#8fa83f','#b8432f','#6f9a3e','#d46a33','#e3b947','#7f9b3a'],
+    fire:  ['#c43a26','#d9542b','#e0702e','#e9993a','#b8302a','#d9c24a','#a8452c','#e3b947','#8fa83f'],
+    maple: ['#c1271f','#d4302a','#b01f1c','#e0482e','#d9542b','#e9993a','#c93a2a','#eaa53a'],
+    late:  ['#a8763e','#b98a4a','#8f6a3c','#c29a52','#7f8a45','#9b5b34','#6f7d42'] };
+  const autumn = PALETTES[M.palette].map(c => new THREE.Color(c));
   const blobA = new THREE.IcosahedronGeometry(1.55, 0); blobA.translate(0, 3.1, 0);
   const blobB = new THREE.IcosahedronGeometry(1.05, 0); blobB.translate(0.55, 4.0, 0.2);
   const mA = instanced(blobA, foliage, leafy.length, { cast: true });
@@ -420,7 +467,7 @@ function buildWorld(){
   for(let k=0; k<14000 && tufts.length < (isTouch ? 5000 : 8000); k++){
     const r = 200*Math.sqrt(rand()), a = rand()*TAU, x = r*Math.cos(a), z = r*Math.sin(a);
     const n = nearest(x,z); if(n && n.d < 2.3) continue;
-    const hy = height(x,z); if(hy > 70) continue;
+    const hy = height(x,z); if(hy > M.h*0.9) continue;
     tufts.push([x, hy, z]);
   }
   const grass = instanced(gGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), tufts.length);
@@ -442,7 +489,7 @@ function buildWorld(){
 
   /* rocks */
   const rocksP = [];
-  for(let k=0;k<3000 && rocksP.length<340;k++){
+  for(let k=0;k<4000 && rocksP.length<Math.round(300*M.rocky);k++){
     let x,z;
     if(rand() < 0.45){ const p = pointAt(rand()*total), side = rand()<0.5?-1:1, off = rr(2.8, 5); x = p.x - p.tz*off*side; z = p.z + p.tx*off*side; }
     else { const r = 230*Math.sqrt(rand()), a = rand()*TAU; x = r*Math.cos(a); z = r*Math.sin(a); const n = nearest(x,z); if(n && n.d < 3) continue; }
@@ -462,7 +509,7 @@ function buildWorld(){
   for(let s = 22; s < total - 12; s += 30){
     const p = pointAt(s); side = -side;
     const x = p.x - p.tz*2.5*side, z = p.z + p.tx*2.5*side;
-    const post = new THREE.Mesh(postGeo, postMat); post.position.set(x, height(x,z)-0.1, z); post.castShadow = true; scene.add(post);
+    const post = new THREE.Mesh(postGeo, postMat); post.position.set(x, height(x,z)-0.1, z); post.castShadow = true; world.add(post);
     const rib = new THREE.Mesh(ribGeo, new THREE.MeshLambertMaterial({ color: ribbonCols[idx++ % ribbonCols.length], side: THREE.DoubleSide }));
     rib.position.set(0, 1.5, 0.07); post.add(rib);
     ribbons.push({ mesh: rib, ph: rand()*TAU, base: Math.atan2(p.tx, p.tz) });
@@ -477,13 +524,13 @@ function buildWorld(){
     const tex = textTex(lines, 512, 280, '#7a5a3a', '#fff6e2', 'rgba(0,0,0,0.22)');
     const face = new THREE.MeshLambertMaterial({ map: tex });
     const board = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.88, 0.08), [wood, wood, wood, wood, face, wood]);
-    board.position.set(0, 2.0, 0.13); board.castShadow = true; g.add(board); scene.add(g);
+    board.position.set(0, 2.0, 0.13); board.castShadow = true; g.add(board); world.add(g);
   }
   const startP = pointAt(0);
-  signAt(4, [{t:'산행 등산로', size:70, serif:true, b:true}, {t:'정상까지 ' + fmtDist(total*METERS), size:52}]);
+  signAt(4, [{t:M.name + ' · ' + M.trailhead, size: M.trailhead.length > 6 ? 46 : 56, serif:true, b:true}, {t:M.peak + '까지 ' + fmtDist(total*METERS), size:52}]);
   [0.25, 0.5, 0.75].forEach(f => {
     const s = total*f;
-    signAt(s, [{t:'↑ 정상 ' + fmtDist((total-s)*METERS), size:58}, {t:'↓ 입구 ' + fmtDist(s*METERS), size:50}]);
+    signAt(s, [{t:'↑ ' + M.peak + ' ' + fmtDist((total-s)*METERS), size:56}, {t:'↓ ' + (M.trailhead.length > 5 ? '입구' : M.trailhead) + ' ' + fmtDist(s*METERS), size:48}]);
   });
 
   /* rest benches (쉼터) facing the view */
@@ -496,25 +543,57 @@ function buildWorld(){
     const back = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.42, 0.08), plank); back.position.set(0, 0.86, -0.24); back.rotation.x = -0.12; g.add(back);
     [-0.8, 0.8].forEach(lx => { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.48, 0.45), wood); leg.position.set(lx, 0.24, 0); g.add(leg); });
     g.traverse(o => { if(o.isMesh) o.castShadow = true; });
-    scene.add(g); benches.push({ x, z, near: false });
+    world.add(g); benches.push({ x, z, near: false });
   });
 
   /* summit: 정상석 + 돌탑 */
   const end = path[N-1]; summitPos = { x: end.x, z: end.z }; summitY = height(end.x, end.z);
   const endT = pointAt(total - 3);
   const stoneMat = new THREE.MeshStandardMaterial({ color: 0x8f8c82, roughness: 1, flatShading: true });
-  const stoneTex = textTex([{t:'산행', size:92, serif:true, b:true}, {t:'정상', size:64, serif:true}, {t:'해발 ' + ELEV(summitY) + 'm', size:48}], 300, 520, '#8f8c82', '#2e2d28');
+  const stoneTex = textTex([{t:M.name, size:84, serif:true, b:true}, {t:M.peak, size:62, serif:true}, {t:M.elev.toLocaleString('ko-KR') + 'm', size:50}], 300, 520, '#8f8c82', '#2e2d28');
   const stone = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.9, 0.55), [stoneMat, stoneMat, stoneMat, stoneMat, new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 1 }), stoneMat]);
   const sx = end.x + endT.tx*2.2, sz = end.z + endT.tz*2.2;
-  stone.position.set(sx, height(sx,sz) + 0.9, sz); stone.rotation.y = Math.atan2(-endT.tx, -endT.tz); stone.castShadow = true; scene.add(stone);
+  stone.position.set(sx, height(sx,sz) + 0.9, sz); stone.rotation.y = Math.atan2(-endT.tx, -endT.tz); stone.castShadow = true; world.add(stone);
   for(let c=0;c<3;c++){
     const a = c*2.1 + 0.6, cx = end.x + Math.cos(a)*4.5, cz = end.z + Math.sin(a)*4.5; let cy = height(cx,cz);
     const layersN = 4 + c;
     for(let l=0;l<layersN;l++){
       const r = 0.55 - l*0.07, st = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), stoneMat);
       st.scale.y = 0.5; st.position.set(cx + rr(-0.05,0.05), cy + r*0.5, cz + rr(-0.05,0.05)); st.rotation.y = rand()*TAU; st.castShadow = true;
-      scene.add(st); cy += r*0.85;
+      world.add(st); cy += r*0.85;
     }
+  }
+
+  /* mountain character */
+  const pickOff = (minD, rMin, rMax) => { for(let k=0;k<60;k++){ const r = rr(rMin, rMax), a = rand()*TAU, x = r*Math.cos(a), z = r*Math.sin(a), n = nearest(x,z); if(!n || n.d > minD) return [x, z]; } return null; };
+  if(M.extra === 'granite'){
+    const gm = new THREE.MeshStandardMaterial({ color: 0xd9d4c6, roughness: 0.95, flatShading: true });
+    for(let i=0;i<16;i++){
+      const q = pickOff(9 + i*0.3, 14, 120); if(!q) continue; const s = rr(3, 9) * (i < 4 ? 1.6 : 1);
+      const m = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), gm); m.scale.set(s*rr(0.8,1.2), s*rr(0.7,1.3), s*rr(0.8,1.2));
+      m.position.set(q[0], height(q[0], q[1]) + s*0.15, q[1]); m.rotation.y = rand()*TAU; m.castShadow = true; m.receiveShadow = true; world.add(m);
+    }
+  } else if(M.extra === 'spires'){
+    const sm = new THREE.MeshStandardMaterial({ color: 0xa7a398, roughness: 1, flatShading: true });
+    for(let i=0;i<26;i++){
+      const q = pickOff(8, 25, 200); if(!q) continue; const hh = rr(10, 28), rad = rr(2.2, 4.5);
+      const m = new THREE.Mesh(new THREE.ConeGeometry(rad, hh, 6), sm); m.scale.z = rr(0.6, 1);
+      m.position.set(q[0], height(q[0], q[1]) + hh*0.42, q[1]); m.rotation.y = rand()*TAU; m.castShadow = true; world.add(m);
+    }
+  } else if(M.extra === 'cloudsea'){
+    const puffs = [];
+    for(let k=0;k<2000 && puffs.length<360;k++){
+      const r = rr(150, 560), a = rand()*TAU, x = r*Math.cos(a), z = r*Math.sin(a);
+      const gy = hRaw(x, z), top = Y0 - 3 + fbm(x*0.01, z*0.01, 2)*3;
+      if(gy > top + 4) continue; const n = nearest(x,z); if(n && n.d < 10) continue;
+      puffs.push([x, top, z]);
+    }
+    const sea = instanced(new THREE.SphereGeometry(1, 10, 7), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0xb8bec4, transparent: true, opacity: 0.93 }), puffs.length);
+    puffs.forEach((q,i) => { const s = rr(9, 22); setInst(sea, i, q[0], q[1], q[2], rand()*TAU, s, rr(0.22, 0.38)); });
+  } else if(M.extra === 'crater'){
+    const wl = hRaw(0, 0) + 2.2;
+    const lake = new THREE.Mesh(new THREE.CircleGeometry(7.5, 40), new THREE.MeshStandardMaterial({ color: 0x5f8fa8, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.88 }));
+    lake.rotation.x = -Math.PI/2; lake.position.y = wl; world.add(lake);
   }
 
   /* distant ranges */
@@ -522,7 +601,7 @@ function buildWorld(){
   for(let i=0;i<30;i++){
     const a = i/30*TAU + rr(-0.06,0.06), r = rr(440, 580);
     const m = new THREE.Mesh(new THREE.ConeGeometry(rr(140,220), rr(45,95), 6), farMat);
-    m.position.set(Math.cos(a)*r, 10 + m.geometry.parameters.height/2 - 20, Math.sin(a)*r); m.rotation.y = rand()*TAU; scene.add(m);
+    m.position.set(Math.cos(a)*r, 10 + m.geometry.parameters.height/2 - 20, Math.sin(a)*r); m.rotation.y = rand()*TAU; world.add(m);
   }
 
   /* clouds */
@@ -532,7 +611,7 @@ function buildWorld(){
     const g = new THREE.Group(); const n = 5 + Math.floor(rand()*4);
     for(let j=0;j<n;j++){ const s = rr(10, 22); const m = new THREE.Mesh(puff, cloudMat); m.scale.set(s*1.5, s*0.6, s); m.position.set(rr(-30,30), rr(-3,5), rr(-14,14)); g.add(m); }
     const a = rand()*TAU, r = rr(180, 480); g.position.set(Math.cos(a)*r, rr(150, 200), Math.sin(a)*r);
-    scene.add(g); clouds.push(g);
+    world.add(g); clouds.push(g);
   }
 }
 
@@ -703,6 +782,31 @@ const Sound = {
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol*3, t+0.003); g.gain.exponentialRampToValueAtTime(0.0001, t+0.04);
     s.connect(bp); bp.connect(g); g.connect(dest); s.start(t, Math.random()*2, 0.06);
   },
+  rustle(){
+    const ctx = this.ctx; if(!ctx || !this.on) return;
+    const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = this.white;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2600; bp.Q.value = 0.7;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t);
+    for(let i=0;i<7;i++){ const tt = t + i*0.06 + Math.random()*0.03; g.gain.exponentialRampToValueAtTime(0.05 + Math.random()*0.05, tt + 0.015); g.gain.exponentialRampToValueAtTime(0.004, tt + 0.05); }
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+    s.connect(bp); bp.connect(g); g.connect(this.master); s.start(t, Math.random()*3, 0.7);
+  },
+  squawk(){
+    const ctx = this.ctx; if(!ctx || !this.on) return;
+    const t = ctx.currentTime;
+    [0, 0.22].forEach(d => {
+      const o = ctx.createOscillator(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(1250, t+d); o.frequency.exponentialRampToValueAtTime(820, t+d+0.13);
+      bp.type = 'bandpass'; bp.frequency.value = 1600; bp.Q.value = 2.5;
+      g.gain.setValueAtTime(0.0001, t+d); g.gain.exponentialRampToValueAtTime(0.07, t+d+0.01); g.gain.exponentialRampToValueAtTime(0.0001, t+d+0.15);
+      o.connect(bp); bp.connect(g); g.connect(this.master); if(this.send) g.connect(this.send); o.start(t+d); o.stop(t+d+0.2);
+    });
+    const s = ctx.createBufferSource(); s.buffer = this.white; const lp = ctx.createBiquadFilter(); lp.type = 'bandpass'; lp.frequency.value = 900; lp.Q.value = 0.8;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t);
+    for(let i=0;i<14;i++){ const tt = t + 0.05 + i*0.055; g.gain.exponentialRampToValueAtTime(0.09, tt + 0.01); g.gain.exponentialRampToValueAtTime(0.005, tt + 0.045); }
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.0);
+    s.connect(lp); lp.connect(g); g.connect(this.master); s.start(t, Math.random()*2, 1.1);
+  },
   chime(){
     const ctx = this.ctx; if(!ctx || !this.on) return;
     const t = ctx.currentTime;
@@ -769,7 +873,25 @@ const Online = { room: null, user: null, status: 'connecting', remotes: new Map(
 let myName = '', myColor = 0, myBubble;
 const ROOM = (new URLSearchParams(location.search).get('room') || 'lobby').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32) || 'lobby';
 const ROOM_LABEL = ROOM === 'lobby' ? '모두의 산' : ROOM;
-const Net = { peers: new Map(), backoff: 1000 };
+const Net = { peers: new Map(), backoff: 1000, ws: null };
+function initialMountain(){
+  const q = new URLSearchParams(location.search).get('mt');
+  if(q && MT_BY_ID[q]) return q;
+  try { const v = localStorage.getItem('sanhaeng-mt'); if(v && MT_BY_ID[v]) return v; } catch(e){}
+  return MOUNTAINS[0].id;
+}
+function shareQuery(){ return '?mt=' + M.id + (ROOM !== 'lobby' ? '&room=' + encodeURIComponent(ROOM) : ''); }
+function onMountainChanged(){
+  try { history.replaceState(null, '', location.pathname + shareQuery()); } catch(e){}
+  $('roomLine').textContent = '방: ' + ROOM_LABEL + ' · ' + M.name + ' · 같은 링크로 들어온 사람과 함께 걸어요';
+  clearRemotes(); Net.peers.clear(); Online.sentKey = '';
+  if(Net.ws){ Net.backoff = 300; try { Net.ws.close(); } catch(e){} }
+}
+async function pollCounts(){
+  if(!/^https?:$/.test(location.protocol)) return;
+  try { const r = await fetch('/api/mountains', { cache: 'no-store' }); if(r.ok){ mtCounts = await r.json(); if(!started) renderMountainPicker(); } } catch(e){}
+}
+setInterval(() => { if(!started) pollCounts(); }, 8000);
 function initOnline(){
   if(!/^https?:$/.test(location.protocol)){ Online.status = 'offline'; Online.why = 'file'; return; }
   connect();
@@ -777,7 +899,7 @@ function initOnline(){
 function connect(){
   Online.status = 'connecting';
   let ws;
-  try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws?room=' + encodeURIComponent(ROOM)); }
+  try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws?mt=' + M.id + '&room=' + encodeURIComponent(ROOM)); Net.ws = ws; }
   catch(e){ return retry(); }
   ws.onopen = () => {
     Online.status = 'online'; Net.backoff = 1000; Online.sentKey = ''; Online.sendT = 0;
@@ -791,7 +913,7 @@ function connect(){
     else return;
     pushPeers();
   };
-  ws.onclose = () => { Online.room = null; Online.status = 'connecting'; Net.peers.clear(); pushPeers(); retry(); };
+  ws.onclose = () => { if(Net.ws === ws) Net.ws = null; Online.room = null; Online.status = 'connecting'; Net.peers.clear(); pushPeers(); retry(); };
   ws.onerror = () => { try { ws.close(); } catch(e){} };
 }
 function retry(){ setTimeout(connect, Net.backoff); Net.backoff = Math.min(15000, Net.backoff*1.7); }
@@ -813,6 +935,7 @@ function syncPeers(peers){
     if(p.kind !== 'viewer' || (p.isMe && p.sameTab)) continue;
     const pr = p.presence || {};
     if(typeof pr.x !== 'number' || typeof pr.z !== 'number' || !isFinite(pr.x) || !isFinite(pr.z)) continue;
+    if(pr.mt !== M.id) continue;
     seen.add(p.peer);
     let r = Online.remotes.get(p.peer);
     if(!r){
@@ -842,7 +965,7 @@ function updateRemotes(dt, t){
 function sendPresence(dt){
   if(!Online.room || !started) return;
   Online.sendT -= dt; if(Online.sendT > 0) return; Online.sendT = 0.1;
-  const o = { x: +px.toFixed(2), z: +pz.toFixed(2), f: +facing.toFixed(2), v: +player.spd.toFixed(1), c: myColor, n: myName, e: Online.emote, et: Online.emoteAt, el: ELEV(py), tr: tFoundNow };
+  const o = { x: +px.toFixed(2), z: +pz.toFixed(2), f: +facing.toFixed(2), v: +player.spd.toFixed(1), c: myColor, n: myName, e: Online.emote, et: Online.emoteAt, el: ELEV(py), tr: tFoundNow, mt: M.id };
   const key = JSON.stringify(o); if(key === Online.sentKey) return;
   Online.sentKey = key; Online.room.presence(o).catch(() => {});
 }
@@ -867,6 +990,120 @@ function updatePlayers(dt){
   if(others.length > 7){ const m = document.createElement('div'); m.className = 'head'; m.textContent = '외 ' + (others.length - 7) + '명'; el.appendChild(m); }
 }
 
+/* ---------- animals (해치지 않아요) ---------- */
+const ANIMALS = {
+  squirrel: { ic:'🐿️', msg:'다람쥐가 빼꼼 고개를 내밀었어요' },
+  rabbit:   { ic:'🐇', msg:'산토끼가 깡충 튀어나왔어요' },
+  deer:     { ic:'🦌', msg:'고라니가 조용히 지나가요' },
+  roe:      { ic:'🦌', msg:'노루가 눈을 맞추고 지나가요' },
+  pheasant: { ic:'🐦', msg:'꿩! 꿩이 푸드득 날아올라요' },
+};
+function animalPool(){ return M.id === 'hallasan' ? ['rabbit','roe','roe','pheasant','pheasant'] : ['squirrel','squirrel','rabbit','deer','pheasant']; }
+function buildAnimal(type){
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const S = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, flatShading: true });
+  const add = (parent, geo, mat, x, y, z, sx, sy, sz, rx) => { const m = new THREE.Mesh(geo, mat); m.position.set(x,y,z); m.scale.set(sx||1, sy||1, sz||1); if(rx) m.rotation.x = rx; m.castShadow = true; parent.add(m); return m; };
+  const sph = r => new THREE.SphereGeometry(r, 10, 8), black = S(0x1b1b1b);
+  const parts = { root, body, legs: [], wings: [], tail: null, ears: [] };
+  if(type === 'squirrel'){
+    const fur = S(0xb5743d), dark = S(0x3a2516);
+    add(body, sph(0.16), fur, 0, 0.18, 0, 0.9, 0.85, 1.3);
+    add(body, new THREE.BoxGeometry(0.035, 0.02, 0.34), dark, 0, 0.32, -0.01);
+    add(body, sph(0.11), fur, 0, 0.29, 0.2);
+    [-1,1].forEach(sx => { add(body, new THREE.ConeGeometry(0.03, 0.07, 5), fur, 0.05*sx, 0.39, 0.19); add(body, sph(0.018), black, 0.055*sx, 0.31, 0.29); });
+    const tail = new THREE.Group(); tail.position.set(0, 0.2, -0.18); body.add(tail);
+    add(tail, sph(0.1), S(0x8a552c), 0, 0.17, -0.05, 0.8, 2.1, 0.8, -0.3); parts.tail = tail;
+  } else if(type === 'rabbit'){
+    const fur = S(0x8d7b66);
+    add(body, sph(0.22), fur, 0, 0.24, 0, 0.95, 0.9, 1.25);
+    add(body, sph(0.14), fur, 0, 0.4, 0.24);
+    [-1,1].forEach(sx => { const e = add(body, sph(0.05), fur, 0.05*sx, 0.6, 0.2, 0.8, 3.2, 0.5); parts.ears.push(e); add(body, sph(0.02), black, 0.07*sx, 0.43, 0.34); });
+    add(body, sph(0.07), S(0xf4f1ea), 0, 0.28, -0.27);
+  } else if(type === 'deer' || type === 'roe'){
+    const fur = S(type === 'roe' ? 0x96643f : 0xa7845c);
+    add(body, sph(0.35), fur, 0, 0.95, 0, 0.8, 0.8, 1.55);
+    const neck = add(body, new THREE.CylinderGeometry(0.08, 0.11, 0.5, 6), fur, 0, 1.25, 0.45); neck.rotation.x = 0.55;
+    add(body, sph(0.15), fur, 0, 1.5, 0.64, 0.85, 0.9, 1.4);
+    add(body, sph(0.035), black, 0, 1.47, 0.84);
+    [-1,1].forEach(sx => { add(body, sph(0.05), fur, 0.1*sx, 1.66, 0.56, 0.6, 1.6, 0.4); add(body, sph(0.022), black, 0.09*sx, 1.54, 0.74); });
+    if(type === 'roe') add(body, sph(0.13), S(0xf4f1ea), 0, 1.0, -0.5, 1, 1, 0.5);
+    [[-0.15,0.42],[0.15,0.42],[-0.15,-0.4],[0.15,-0.4]].forEach(([lx,lz]) => {
+      const pv = new THREE.Group(); pv.position.set(lx, 0.85, lz); body.add(pv);
+      add(pv, new THREE.CylinderGeometry(0.035, 0.03, 0.85, 5), fur, 0, -0.42, 0); parts.legs.push(pv);
+    });
+  } else {
+    const copper = S(0xa4542a);
+    add(body, sph(0.18), copper, 0, 0.26, 0, 1, 0.9, 1.5);
+    add(body, sph(0.09), S(0x1f5a3a), 0, 0.44, 0.22);
+    add(body, sph(0.04), S(0xc8302a), 0.05, 0.45, 0.28); add(body, sph(0.04), S(0xc8302a), -0.05, 0.45, 0.28);
+    add(body, new THREE.TorusGeometry(0.07, 0.015, 4, 10), S(0xf4f1ea), 0, 0.37, 0.19, 1, 1, 1, Math.PI/2);
+    add(body, new THREE.ConeGeometry(0.05, 0.75, 5), S(0x7a5530), 0, 0.3, -0.5, 1, 1, 0.4, -1.35);
+    [-1,1].forEach(sx => { const w = new THREE.Group(); w.position.set(0.15*sx, 0.3, 0); body.add(w); add(w, sph(0.14), S(0x8a4a26), 0.1*sx, 0, 0, 1.2, 0.25, 0.9); w.userData.side = sx; parts.wings.push(w); });
+  }
+  root.scale.setScalar({ squirrel:1.7, rabbit:1.45, deer:1.1, roe:1.1, pheasant:1.5 }[type]);
+  root.visible = false; scene.add(root);
+  return parts;
+}
+const animalModels = {};
+let animal = null, animalTimer = 15;
+function hideAnimal(){ if(animal){ animal.a.root.visible = false; animal = null; } }
+function spawnAnimal(){
+  const pool = animalPool(), type = pool[Math.floor(Math.random()*pool.length)];
+  const a = animalModels[type] || (animalModels[type] = buildAnimal(type));
+  const p = pointAt(Math.min(total - 10, sPlayer + 11 + Math.random()*8));
+  const side = Math.random() < 0.5 ? -1 : 1, off = 6 + Math.random()*2.5;
+  const ox = -p.tz*side, oz = p.tx*side;              // from trail toward the animal
+  const x = p.x + ox*off, z = p.z + oz*off;
+  const cross = type !== 'pheasant' && Math.random() < 0.6;
+  let dx = cross ? -ox + p.tx*0.35 : ox + p.tx*0.3, dz = cross ? -oz + p.tz*0.35 : oz + p.tz*0.3; const L = Math.hypot(dx,dz); dx/=L; dz/=L;
+  const spd = { squirrel:5.2, rabbit:6, deer:6.8, roe:6.8, pheasant:7.5 }[type];
+  animal = { a, type, x, z, y: height(x,z), st:'peek', t:0, look: 1.4 + Math.random()*1.8, dx, dz, spd, gone:0, told:false };
+  a.root.visible = true; a.root.position.set(x, animal.y - 0.6, z);
+  Sound.rustle();
+}
+function updateAnimals(dt, t){
+  if(!started) return;
+  if(!animal){
+    animalTimer -= dt;
+    if(animalTimer <= 0){ if(!summitShown && sPlayer < total - 30 && playerD < 12) spawnAnimal(); animalTimer = 22 + Math.random()*26; }
+    return;
+  }
+  const A = animal, a = A.a; A.t += dt;
+  const dP = Math.hypot(px - A.x, pz - A.z), faceP = Math.atan2(px - A.x, pz - A.z);
+  if(A.st === 'peek' || A.st === 'look'){
+    a.root.rotation.y += angDiff(faceP, a.root.rotation.y) * Math.min(1, dt*6);
+    if(A.st === 'peek'){
+      const k = Math.min(1, A.t/0.45); a.root.position.y = A.y - 0.6*(1-k) + Math.sin(Math.min(1, A.t/0.45)*Math.PI)*0.25;
+      if(A.t > 0.5){ A.st = 'look'; A.t = 0; if(!A.told){ A.told = true; toast(ANIMALS[A.type].ic + ' ' + ANIMALS[A.type].msg, 3.2); } }
+    } else {
+      a.root.position.y = A.y;
+      if(A.type === 'squirrel'){ a.body.rotation.x = -0.55; a.tail.rotation.x = Math.sin(t*9)*0.25; }
+      if(A.type === 'rabbit') a.ears.forEach((e,i) => e.rotation.z = Math.sin(t*7 + i*2)*0.25);
+      if(A.type === 'deer' || A.type === 'roe') a.body.rotation.x = Math.sin(t*1.5)*0.03;
+      if(A.t > A.look || dP < 4.5){
+        if(dP < 4.5){ const L = dP || 1; A.dx = (A.x - px)/L; A.dz = (A.z - pz)/L; }
+        A.st = 'run'; A.t = 0; a.body.rotation.x = 0;
+        if(A.type === 'pheasant') Sound.squawk(); else Sound.rustle();
+      }
+    }
+    return;
+  }
+  // run / fly away
+  A.x += A.dx*A.spd*dt; A.z += A.dz*A.spd*dt; A.gone += A.spd*dt;
+  a.root.rotation.y += angDiff(Math.atan2(A.dx, A.dz), a.root.rotation.y) * Math.min(1, dt*10);
+  const gy = height(A.x, A.z);
+  if(A.type === 'pheasant'){
+    A.y = Math.max(A.y + dt*(A.t < 1.2 ? 3.2 : 1.4), gy + 0.3); a.root.position.set(A.x, A.y, A.z);
+    a.wings.forEach(w => w.rotation.z = w.userData.side * (0.2 + Math.sin(t*32)*0.9));
+  } else {
+    const hop = { squirrel:[14,0.18], rabbit:[9,0.38], deer:[6.5,0.45], roe:[6.5,0.45] }[A.type];
+    a.root.position.set(A.x, gy + Math.abs(Math.sin(A.t*hop[0]))*hop[1], A.z);
+    if(a.tail) a.tail.rotation.x = Math.sin(A.t*hop[0])*0.35;
+    a.legs.forEach((l,i) => l.rotation.x = Math.sin(A.t*13 + (i<2 ? 0 : Math.PI))*0.7);
+  }
+  if(A.gone > 30) hideAnimal();
+}
+
 /* ---------- treasure hunt (보물찾기) ---------- */
 const TREASURES = [
   { id:'pebble',  f:0.08, ic:'🔹', name:'반짝 조약돌',      desc:'냇가에서 굴러온 듯 매끈한 돌. 손에 쥐면 따뜻해요.',          hint:'입구를 지나 얼마 안 가서' },
@@ -878,7 +1115,7 @@ const TREASURES = [
   { id:'feather', f:0.76, ic:'🪶', name:'산새 깃털',          desc:'아까 노래하던 새가 떨어뜨렸나 봐요. 가볍고 보드라워요.',       hint:'세 번째 이정표 근처' },
   { id:'star',    f:0.91, ic:'⭐', name:'정상의 별조각',      desc:'정상 가까이에서만 보이는 작은 빛. 밤하늘에서 떨어졌대요.',     hint:'정상 바로 아래' },
 ];
-let tBook = {}; try { tBook = JSON.parse(localStorage.getItem('sanhaeng-treasure') || '{}') || {}; } catch(e){ tBook = {}; }
+let tBook = {};
 const tItems = []; let tFoundNow = 0, tNewIds = new Set();
 function treasureMesh(id){
   const g = new THREE.Group(), S = (c, e) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, emissive: e || 0x000000, flatShading: true });
@@ -899,9 +1136,9 @@ function buildTreasures(){
   TREASURES.forEach((t, i) => {
     const s = total*t.f, p = pointAt(s), side = i % 2 ? 1 : -1, off = 5 + (i % 3)*0.6;
     const x = p.x - p.tz*off*side, z = p.z + p.tx*off*side, y = height(x, z);
-    const g = treasureMesh(t.id); g.position.set(x, y, z); g.rotation.y = i*1.3; scene.add(g);
+    const g = treasureMesh(t.id); g.position.set(x, y, z); g.rotation.y = i*1.3; world.add(g);
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkleTex, color: 0xfff1b0, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
-    sp.position.set(x, y + 0.5, z); sp.scale.set(1.6, 1.6, 1); scene.add(sp);
+    sp.position.set(x, y + 0.5, z); sp.scale.set(1.6, 1.6, 1); world.add(sp);
     tItems.push({ t, g, sp, x, z, y, found: false, hinted: false, anim: 0 });
   });
   refreshTreasureHUD();
@@ -931,7 +1168,7 @@ function updateTreasures(dt, t){
 function collectTreasure(it){
   it.found = true; it.anim = 1.2; tFoundNow++;
   const again = !!tBook[it.t.id];
-  if(!again){ tBook[it.t.id] = Date.now(); tNewIds.add(it.t.id); try { localStorage.setItem('sanhaeng-treasure', JSON.stringify(tBook)); } catch(e){} }
+  if(!again){ tBook[it.t.id] = Date.now(); tNewIds.add(it.t.id); try { localStorage.setItem('sanhaeng-treasure-' + M.id, JSON.stringify(tBook)); } catch(e){} }
   refreshTreasureHUD();
   const b = $('btnTreasure'); b.classList.add('pop'); setTimeout(() => b.classList.remove('pop'), 900);
   toast(it.t.ic + ' ' + it.t.name + (again ? ' · 또 만났어요' : ' · 보물 발견!') + ' (' + tFoundNow + '/' + TREASURES.length + ')', 4);
@@ -941,7 +1178,7 @@ function collectTreasure(it){
 function openTreasureBook(){
   const grid = $('tgrid'); grid.textContent = '';
   const n = TREASURES.filter(t => tBook[t.id]).length;
-  $('tbookSub').textContent = '수첩에 모은 보물 ' + n + '/' + TREASURES.length + ' · 이번 산행에서 ' + tFoundNow + '개';
+  $('tbookSub').textContent = M.name + ' 수첩 ' + n + '/' + TREASURES.length + ' · 이번 산행에서 ' + tFoundNow + '개';
   TREASURES.forEach(t => {
     const have = !!tBook[t.id], d = document.createElement('div');
     d.className = 'titem' + (have ? '' : ' no') + (tNewIds.has(t.id) ? ' new' : '');
@@ -1026,7 +1263,7 @@ function updatePlayer(dt, t){
   if(!summitShown && Math.hypot(summitPos.x-px, summitPos.z-pz) < 6.5){
     summitShown = true; setAuto(false);
     const sec = Math.round(clock - startTime), mm = Math.floor(sec/60), ss = sec%60;
-    $('summitText').innerHTML = '해발 ' + ELEV(summitY) + 'm에 올랐어요.<br>' + (mm>0 ? mm + '분 ' : '') + ss + '초 동안 걸었어요. 수고했어요.';
+    $('summitText').innerHTML = M.name + ' ' + M.peak + ', 해발 ' + M.elev.toLocaleString('ko-KR') + 'm에 올랐어요.<br>' + (mm>0 ? mm + '분 ' : '') + ss + '초 동안 걸었어요. 수고했어요.';
     $('summitTreasure').textContent = '이번 산행에서 찾은 보물 ' + tFoundNow + '/' + TREASURES.length + (tFoundNow === TREASURES.length ? ' · 전부 찾았어요!' : '');
     setTimeout(() => $('summit').classList.remove('hidden'), 900);
   }
@@ -1058,7 +1295,7 @@ let hudT = 0;
 function updateHUD(dt){
   hudT -= dt; if(hudT > 0) return; hudT = 0.25;
   const remain = Math.max(0, (total - sPlayer) * METERS);
-  $('stats').textContent = '해발 ' + ELEV(py) + 'm · ' + (remain < 40 ? '정상' : '정상까지 ' + fmtDist(remain));
+  $('stats').textContent = '해발 ' + ELEV(py).toLocaleString('ko-KR') + 'm · ' + (remain < 40 ? M.peak : M.peak + '까지 ' + fmtDist(remain));
   $('barFill').style.width = (sPlayer/total*100).toFixed(1) + '%';
 }
 
@@ -1108,20 +1345,19 @@ $('btnDice').addEventListener('click', () => { $('nick').value = randomNick(); }
 $('nick').addEventListener('keydown', e => { e.stopPropagation(); if(e.key === 'Enter') $('nick').blur(); });
 document.querySelectorAll('#emotes button').forEach(b => b.addEventListener('click', () => doEmote(b.dataset.e)));
 addEventListener('keydown', e => { if(!started || e.target === $('nick')) return; if(e.code === 'Digit1') doEmote('wave'); if(e.code === 'Digit2') doEmote('heart'); if(e.code === 'Digit3') doEmote('yaho'); });
-$('roomLine').textContent = '방: ' + ROOM_LABEL + ' · 같은 링크로 들어온 사람과 함께 걸어요';
-function inviteUrl(){ return location.origin + location.pathname + '?room=' + encodeURIComponent(ROOM); }
+function inviteUrl(){ return location.origin + location.pathname + shareQuery(); }
 $('btnInvite').addEventListener('click', () => {
   const url = inviteUrl();
   const ok = () => toast('초대 링크를 복사했어요', 2.5), fail = () => toast(url, 6);
   try { navigator.clipboard.writeText(url).then(ok, fail); } catch(e){ fail(); }
 });
-initOnline();
 $('btnTreasure').addEventListener('click', openTreasureBook);
 $('btnTbookClose').addEventListener('click', () => { $('tbook').classList.add('hidden'); tNewIds.clear(); });
 $('btnAuto').addEventListener('click', () => setAuto(!auto));
 $('btnSound').addEventListener('click', () => { const on = Sound.toggle(); $('btnSound').innerHTML = on ? ICON_ON : ICON_OFF; });
 $('btnHelp').addEventListener('click', () => $('help').classList.remove('hidden'));
 $('btnHelpClose').addEventListener('click', () => $('help').classList.add('hidden'));
+$('btnOther').addEventListener('click', showStartScreen);
 $('btnStay').addEventListener('click', () => $('summit').classList.add('hidden'));
 $('btnRestart').addEventListener('click', () => { $('summit').classList.add('hidden'); resetToStart(); resetTreasures(); toast('다시 입구에서 시작해요. 보물도 다시 숨었어요'); });
 $('btnStart').addEventListener('click', () => {
@@ -1148,13 +1384,13 @@ function frame(now){
   if(started) updatePlayer(dt, clock);
   else { yaw += dt*0.05; animHiker(player, dt, 0, clock); player.root.position.set(px,py,pz); player.root.rotation.y = facing; }
   updateNPCs(dt, clock);
-  updateTreasures(dt, clock);
+  updateTreasures(dt, clock); updateAnimals(dt, clock);
   updateRemotes(dt, clock); tickBubble(myBubble, dt); sendPresence(dt);
   const alone = Online.remotes.size === 0; npcs.forEach(n => n.h.root.visible = alone);
   updateCamera(dt);
   updateLeaves(dt, clock, px, py, pz, 0.3 + g);
   ribbons.forEach(r => { r.mesh.rotation.z = Math.sin(clock*3.2 + r.ph)*0.25*(0.4+g); r.mesh.rotation.x = Math.sin(clock*2.1 + r.ph)*0.2*(0.4+g); });
-  clouds.forEach(c => { c.position.x += dt*1.6; if(c.position.x > 520) c.position.x = -520; });
+  clouds.forEach(c => { if(c.isSea){ return; } c.position.x += dt*1.6; if(c.position.x > 520) c.position.x = -520; });
   sky.position.copy(camera.position);
   sunGlow.position.copy(camera.position).addScaledVector(sunDir, 700);
   sun.position.set(px + sunDir.x*120, py + sunDir.y*120, pz + sunDir.z*120); sun.target.position.set(px, py, pz); sun.target.updateMatrixWorld();
@@ -1162,20 +1398,74 @@ function frame(now){
   renderer.render(scene, camera);
 }
 
+/* ---------- mountains: load / switch ---------- */
+function clearWorld(){
+  hideAnimal(); animalTimer = 15;
+  if(world){
+    scene.remove(world);
+    world.traverse(o => {
+      if(o.geometry) o.geometry.dispose();
+      if(o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if(m.map) m.map.dispose(); m.dispose(); });
+    });
+    world = null;
+  }
+  ribbons.length = 0; benches.length = 0; clouds.length = 0; tItems.length = 0;
+}
+function loadMountain(id){
+  M = MT_BY_ID[id] || MOUNTAINS[0];
+  try { localStorage.setItem('sanhaeng-mt', M.id); } catch(e){}
+  seed = M.seed * 7919 + 1;
+  clearWorld(); genPath(); buildWorld(); buildTreasures();
+  try { tBook = JSON.parse(localStorage.getItem('sanhaeng-treasure-' + M.id) || '{}') || {}; } catch(e){ tBook = {}; }
+  tFoundNow = 0; tNewIds.clear(); refreshTreasureHUD();
+  npcs.forEach(n => { n.s = total*n.frac; n.rest = 0; });
+  resetToStart();
+  renderMountainPicker();
+  $('mtDesc').textContent = M.desc;
+  $('cardTitle').textContent = '산행 · ' + M.name;
+  onMountainChanged();
+}
+let mtCounts = {};
+function renderMountainPicker(){
+  const box = $('mts'); box.textContent = '';
+  MOUNTAINS.forEach(m => {
+    const b = document.createElement('button'); b.className = 'mt' + (m.id === M.id ? ' sel' : '');
+    const n = document.createElement('b'); n.textContent = m.name;
+    const e = document.createElement('span'); e.textContent = m.peak + ' ' + m.elev.toLocaleString('ko-KR') + 'm';
+    const t = document.createElement('span'); t.textContent = m.tag;
+    b.append(n, e, t);
+    if(mtCounts[m.id]){ const l = document.createElement('span'); l.className = 'live'; l.textContent = '● ' + mtCounts[m.id] + '명 오르는 중'; b.appendChild(l); }
+    b.addEventListener('click', () => { if(m.id === M.id) return; switchMountain(m.id); });
+    box.appendChild(b);
+  });
+}
+function switchMountain(id){
+  const btn = $('btnStart'); btn.disabled = true; btn.textContent = '산으로 가는 중…';
+  setTimeout(() => { loadMountain(id); btn.disabled = false; btn.textContent = M.name + ' 오르기'; }, 30);
+}
+function showStartScreen(){
+  resetToStart(); resetTreasures();
+  pollCounts();
+  started = false; setAuto(false); hideAnimal();
+  $('summit').classList.add('hidden'); $('hud').classList.add('hidden');
+  const s = $('start'); s.classList.remove('hidden'); s.style.pointerEvents = ''; requestAnimationFrame(() => s.style.opacity = '1');
+  $('btnStart').textContent = M.name + ' 오르기';
+}
+
 /* ---------- boot ---------- */
 function boot(){
-  buildWorld(); buildLeaves();
+  buildLeaves();
   player = makeHiker({ jacket: JACKETS[myColor], pants: 0x3b4a5a, hat: 0xf2c14e, pack: 0x4f7c6a });
   const npcDefs = [
     { name: '산들',   jacket: 0x5b8fd1, pants: 0x46505a, hat: 0xf4efe4, pack: 0xc9604a, speed: 2.1, s: 0.18 },
     { name: '솔바람', jacket: 0x8e6bbf, pants: 0x3a3f4a, hat: 0x6f9a4f, pack: 0xe0b347, speed: 1.7, s: 0.45 },
     { name: '다람쥐', jacket: 0xe3b23c, pants: 0x5a4636, hat: 0xd65a4a, pack: 0x3f6a8a, speed: 2.4, s: 0.7 }
   ];
-  npcs = npcDefs.map((d,i) => { const h = makeHiker(d); h.root.add(nameTag(d.name)); return { h, speed: d.speed, s: total*d.s, off: i%2 ? 0.75 : -0.75, rest: 0 }; });
-  buildTreasures();
+  npcs = npcDefs.map((d,i) => { const h = makeHiker(d); h.root.add(nameTag(d.name)); return { h, speed: d.speed, s: 0, frac: d.s, off: i%2 ? 0.75 : -0.75, rest: 0 }; });
   myBubble = makeBubble(); player.root.add(myBubble);
-  resetToStart();
-  const b = $('btnStart'); b.disabled = false; b.textContent = '산행 시작하기';
+  loadMountain(initialMountain());
+  initOnline(); pollCounts();
+  const b = $('btnStart'); b.disabled = false; b.textContent = M.name + ' 오르기';
   requestAnimationFrame(frame);
 }
 const fontsReady = (document.fonts && document.fonts.load)

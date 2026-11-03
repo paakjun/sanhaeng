@@ -3,7 +3,10 @@
 링크만 열면 같은 산에서 만나는 3D 등산 게임이에요.
 
 - `https://내주소/?room=maru` → **maru** 방
+- `https://내주소/?mt=hallasan&room=maru` → 한라산의 **maru** 방
 - `https://내주소/` → 누구나 만나는 **모두의 산**
+
+산: `bukhansan`(북한산) · `seoraksan`(설악산) · `jirisan`(지리산) · `hallasan`(한라산) · `naejangsan`(내장산)
 
 같은 `room` 이름으로 들어온 사람끼리만 서로 보여요. 로그인은 필요 없어요.
 
@@ -39,4 +42,5 @@ npm start
 
 ## 상태 확인
 
-`/health` → `{"ok":true,"rooms":1,"players":2}`
+`/health` → `{"ok":true,"rooms":1,"players":2}`  
+`/api/mountains` → 산별 지금 오르는 사람 수 `{"hallasan":2}`

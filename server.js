@@ -9,13 +9,20 @@ const PORT = process.env.PORT || 3000;
 const PUB = path.join(__dirname, 'public');
 const MAX_PER_ROOM = 40;
 const EMOTES = new Set(['', 'wave', 'heart', 'yaho']);
+const MOUNTAINS = ['bukhansan', 'seoraksan', 'jirisan', 'hallasan', 'naejangsan'];
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json' };
 
-const rooms = new Map(); // room -> Map(id -> client)
+const rooms = new Map(); // 'mountain/room' -> Map(id -> client)
 const players = () => [...rooms.values()].reduce((n, r) => n + r.size, 0);
 
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, 'http://local');
+  if (u.pathname === '/api/mountains') {
+    const counts = {};
+    rooms.forEach((r, key) => { const mt = key.split('/')[0]; counts[mt] = (counts[mt] || 0) + r.size; });
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    return res.end(JSON.stringify(counts));
+  }
   if (u.pathname === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' });
     return res.end(JSON.stringify({ ok: true, rooms: rooms.size, players: players() }));
@@ -42,6 +49,7 @@ function sanitize(s) {
     n: String(s.n || '').replace(/[\u0000-\u001f\u007f​-‏‪-‮⁠-⁯﻿<>]/g, '').trim().slice(0, 10),
     e: EMOTES.has(s.e) ? s.e : '', et: num(s.et, 0, 1e15),
     tr: num(s.tr, 0, 8) | 0,
+    mt: MOUNTAINS.includes(s.mt) ? s.mt : '',
   };
 }
 const send = (ws, m) => { if (ws.readyState === 1) ws.send(JSON.stringify(m)); };
@@ -49,7 +57,9 @@ const broadcast = (room, fromId, m) => { const txt = JSON.stringify(m); room.for
 
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 4096 });
 wss.on('connection', (ws, req) => {
-  const roomName = cleanRoom(new URL(req.url, 'http://local').searchParams.get('room'));
+  const q = new URL(req.url, 'http://local').searchParams;
+  const mt = MOUNTAINS.includes(q.get('mt')) ? q.get('mt') : MOUNTAINS[0];
+  const roomName = mt + '/' + cleanRoom(q.get('room'));
   let room = rooms.get(roomName);
   if (!room) { room = new Map(); rooms.set(roomName, room); }
   if (room.size >= MAX_PER_ROOM) { ws.close(1013, 'room full'); return; }
@@ -58,7 +68,7 @@ wss.on('connection', (ws, req) => {
   const me = { ws, s: null, tokens: 20, last: Date.now() };
   room.set(id, me);
   ws.isAlive = true;
-  send(ws, { t: 'welcome', id, room: roomName, peers: [...room].filter(([k, c]) => k !== id && c.s).map(([k, c]) => ({ id: k, s: c.s })) });
+  send(ws, { t: 'welcome', id, room: roomName, mt, peers: [...room].filter(([k, c]) => k !== id && c.s).map(([k, c]) => ({ id: k, s: c.s })) });
 
   ws.on('pong', () => { ws.isAlive = true; });
   ws.on('message', (buf) => {
@@ -68,6 +78,7 @@ wss.on('connection', (ws, req) => {
     let m; try { m = JSON.parse(buf); } catch { return; }
     if (!m || m.t !== 'p') return;
     const s = sanitize(m.s); if (!s) return;
+    s.mt = mt;
     me.s = s;
     broadcast(room, id, { t: 'p', id, s });
   });
