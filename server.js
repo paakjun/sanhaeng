@@ -57,7 +57,7 @@ function sanitize(s) {
     si: s.si ? 1 : 0,
     gb: num(s.gb, 0, 255) | 0,
     ly: s.ly ? 1 : 0, lt: s.lt ? 1 : 0,
-    cy: num(s.cy, 0, 8), cl: s.cl ? 1 : 0,
+    cy: num(s.cy, -8, 8), cl: s.cl ? 1 : 0,
   };
 }
 const send = (ws, m) => { if (ws.readyState === 1) ws.send(JSON.stringify(m)); };

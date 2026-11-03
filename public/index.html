@@ -309,10 +309,12 @@
       <li>‘길 따라 걷기’를 켜면 알아서 등산로를 따라 올라가요</li>
       <li>왼쪽 아래 🏃 버튼으로 달리기를 켜고 끌 수 있어요 (PC는 Shift). 오래 달리면 숨이 차요</li>
       <li>🌅 하늘과 해는 지금 한국 시간(KST) 그대로 바뀌어요. 시간 표시를 누르면 일출을 미리 볼 수 있어요</li>
-      <li>🧗 바윗길의 밧줄 걸린 암벽에 가까이 가면 ‘암벽 오르기’로 올라갈 수 있어요</li>
-      <li>⭐ 정상에 오르면 별(정상 · 캠핑 장비 8개 · 암벽 또는 약수)과 배지, 칭호, 등정 인증서를 받아요</li>
+      <li>🧗 정상 바로 앞에는 암벽이 있어요. 밧줄을 잡고 올라야 정상에 갈 수 있어요 (‘길 따라 걷기’ 중엔 자동으로 올라요)</li>
+      <li>⭐ 정상에 오르면 별(정상 · 장비 8개 · 약수 마시기)과 배지, 칭호, 등정 인증서를 받아요</li>
       <li>🎧 스피커 버튼을 누르면 새소리·바람·물소리·풀벌레·빗소리·발소리를 따로 조절할 수 있어요</li>
       <li>🎒 등산객은 캠핑 장비(의자·매트·텐트·보온병·버너·랜턴·카라비너), 🌲 관리인은 관리 장비(지도·무전기·쌍안경·손전등·구급상자·호루라기·묘목·깃발)를 모아요. 왼쪽 아이콘을 눌러 써요</li>
+      <li>🔥 왼쪽 맨 아래 모닥불 아이콘으로 어디서든 모닥불을 피우고 불멍할 수 있어요</li>
+      <li>⚠️ 등산로를 벗어나면 뱀과 밤짐승이 우글거려요. 너무 깊이 들어가면 쫓겨나요</li>
       <li>💧 약수터에서 물을 마시면 달리기 체력이 다시 가득 차요</li>
       <li>⚠️ 가끔 산사태가 나요. 우르릉 소리가 나면 옆으로 달려 피하세요. 휩쓸리면 지난 쉼터에서 다시 시작해요</li>
       <li>쉼터 벤치 가까이에서 ‘🪑 앉아서 쉬기’를 누르면 앉아서 경치를 볼 수 있어요</li>
@@ -394,7 +396,8 @@ const COURSES = {
   gongryong:  { wig:8, wigF:70, stream:-1, humps:7, sec:[[0,0.07,'forest'],[0.07,0.3,'rock'],[0.3,0.4,'ridge'],[0.4,0.62,'rock'],[0.62,0.7,'stairs'],[0.7,1.01,'rock']] },
   naejangsan: { wig:5, wigF:34, stream:0.2,  sec:[[0,0.14,'forest'],[0.14,0.28,'valley'],[0.28,0.5,'forest'],[0.5,0.68,'stairs'],[0.68,1.01,'ridge']] },
 };
-function sectionAtF(f){ const c = COURSES[M.id]; if(!c) return 'forest'; for(const q of c.sec) if(f >= q[0] && f < q[1]) return q[2]; return 'forest'; }
+const WALL_F = 0.945, WALL_H = 4.6;
+function sectionAtF(f){ if(Math.abs(f - WALL_F) < 0.03) return 'rock'; const c = COURSES[M.id]; if(!c) return 'forest'; for(const q of c.sec) if(f >= q[0] && f < q[1]) return q[2]; return 'forest'; }
 function sectionAt(s){ return sectionAtF(s/total); }
 let M = MOUNTAINS[0];
 
@@ -428,6 +431,7 @@ function genPath(){
     const tmp = Float32Array.from(ph);
     for(let i=0;i<N;i++){ let s=0,c=0; for(let j=i-8;j<=i+8;j++){ if(j>=0&&j<N){ s+=tmp[j]; c++; } } ph[i]=s/c; }
   }
+  { const iw = Math.round((N - 1)*WALL_F); for(let i=0;i<N;i++) ph[i] += WALL_H*smoothstep(iw - 1.5, iw + 1.5, i); }
   { const C = COURSES[M.id]; if(C && C.humps){ for(let i=0;i<N;i++){ const t = i/(N-1); ph[i] += 7*Math.pow(Math.abs(Math.sin(t*Math.PI*C.humps)), 1.5)*smoothstep(0.05, 0.15, t)*(1 - smoothstep(0.9, 0.98, t)); } } }
   for(let i=1;i<N;i++) cum[i] = cum[i-1] + Math.hypot(path[i].x-path[i-1].x, path[i].z-path[i-1].z);
   total = cum[N-1];
@@ -887,10 +891,7 @@ function makeDipper(color){
 }
 function computeRestSpots(){
   climbSpots = [];
-  { let last = -999; for(let s2 = total*0.05; s2 < total*0.95 && climbSpots.length < 2; s2 += 3){
-      if(sectionAt(s2) !== 'rock' || s2 - last < total*0.18) continue;
-      const p = pointAt(s2); let ix = -p.x, iz = -p.z; const L = Math.hypot(ix, iz) || 1; ix /= L; iz /= L;
-      climbSpots.push({ x: p.x + ix*5.6, z: p.z + iz*5.6, ix, iz, s: s2 }); last = s2; } }
+  { const s2 = total*WALL_F, p = pointAt(s2); climbSpots.push({ x: p.x, z: p.z, s: s2, tx: p.tx, tz: p.tz }); }
   springSpots = [0.17, 0.69].map(f => {
     const p = pointAt(total*f); let ix = -p.x, iz = -p.z; const L = Math.hypot(ix, iz) || 1; ix /= L; iz /= L;
     return { x: p.x + ix*4.0, z: p.z + iz*4.0, ix, iz, f };
@@ -1092,25 +1093,30 @@ function buildWorld(){
       }
     }
   }
-  /* 🧗 암벽: a climbable rock wall with a rope */
+  /* 🧗 정상 앞 암벽: the trail itself goes up a rock face */
   climbs.length = 0;
+  const wdW = new THREE.MeshLambertMaterial({ color: 0x7a5a3a });
   climbSpots.forEach((c, ci) => {
-    const gy = height(c.x, c.z) - 0.2, TOP = 4.6, g = new THREE.Group(); g.position.set(c.x, gy, c.z); g.rotation.y = Math.atan2(-c.ix, -c.iz);
-    const bg = new THREE.BoxGeometry(3.4, TOP, 2.8, 5, 7, 5); bg.translate(0, TOP/2, 0); jitterGeo(bg, 0.28, 1.4, 50 + ci);
-    const bp = bg.attributes.position; for(let i=0;i<bp.count;i++){ if(bp.getY(i) > TOP - 0.25) bp.setY(i, TOP); if(bp.getY(i) < 0) bp.setY(i, -0.3); }
+    const sW = c.s, pb = pointAt(sW - 2.2), pe = pointAt(sW - 1.2), pt = pointAt(sW + 1.8);
+    const yb = height(pb.x, pb.z), yt = height(pt.x, pt.z), dir = Math.atan2(c.tx, c.tz);
+    const g = new THREE.Group(); g.position.set(c.x, yb - 0.3, c.z); g.rotation.y = dir;
+    const H = yt - yb + 0.6, bg = new THREE.BoxGeometry(10, H, 3.2, 8, 6, 4); bg.translate(0, H/2, 0); jitterGeo(bg, 0.3, 1.3, 70 + ci);
+    const bp = bg.attributes.position; for(let i=0;i<bp.count;i++){ if(bp.getY(i) > H - 0.3) bp.setY(i, H - 0.25); if(bp.getY(i) < 0) bp.setY(i, -0.4); }
     bg.computeVertexNormals();
-    const wall = new THREE.Mesh(mergeParts([{ geo: bg, color: (x, y, z, nx, ny) => { const m = smoothstep(0.6, 0.95, ny)*0.6, v = 0.66 + (vnoise(x*2.3, y*2.1 + z) - 0.5)*0.22; return [v*(1-m) + 0.4*m, v*(1-m) + 0.52*m, v*(1-m) + 0.3*m]; } }]),
+    const wall = new THREE.Mesh(mergeParts([{ geo: bg, color: (x, y, z, nx, ny) => { const m = smoothstep(0.6, 0.95, ny)*0.5, v = 0.66 + (vnoise(x*2.1, y*2.3 + z) - 0.5)*0.24; return [v*(1-m) + 0.42*m, v*(1-m) + 0.52*m, v*(1-m) + 0.32*m]; } }]),
       new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true }));
     wall.castShadow = true; wall.receiveShadow = true; g.add(wall);
-    const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, TOP + 0.2, 8), new THREE.MeshStandardMaterial({ color: 0xd9b46a, roughness: 0.9 }));
-    rope.position.set(0.35, TOP/2, 1.55); rope.rotation.x = -0.06; rope.castShadow = true; g.add(rope);
-    const bolt = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.025, 6, 14), new THREE.MeshStandardMaterial({ color: 0x8c8c8c, metalness: 0.6, roughness: 0.4 }));
-    bolt.position.set(0.35, TOP + 0.02, 1.3); bolt.rotation.x = Math.PI/2; g.add(bolt);
-    for(let k=0;k<4;k++){ const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28 - k*0.05, 0), new THREE.MeshStandardMaterial({ color: 0x8f8c82, roughness: 1, flatShading: true })); st.scale.y = 0.55; st.position.set(-0.8, TOP + 0.12 + k*0.17, -0.5); g.add(st); }
-    world.add(g); g.updateMatrixWorld(true);
-    const w = (x, y, z) => new THREE.Vector3(x, y, z).applyMatrix4(g.matrixWorld);
-    const base = w(0.35, 0, 2.15); base.y = height(base.x, base.z);
-    climbs.push({ base, edge: w(0.35, gy - gy + TOP, 1.25), top: w(0.1, TOP, 0.2), rot: g.rotation.y, done: false, near: false });
+    const ropeM = new THREE.MeshStandardMaterial({ color: 0xd9b46a, roughness: 0.9 });
+    [-0.5, 0.6].forEach(lx => { const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, H + 0.3, 8), ropeM); rope.position.set(lx, H/2, -1.66); rope.rotation.x = 0.05; rope.castShadow = true; g.add(rope);
+      const bolt = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.025, 6, 14), new THREE.MeshStandardMaterial({ color: 0x8c8c8c, metalness: 0.6, roughness: 0.4 })); bolt.position.set(lx, H - 0.2, -1.4); bolt.rotation.x = Math.PI/2; g.add(bolt); });
+    world.add(g);
+    // sign at the foot of the wall
+    const ps = pointAt(sW - 3.5), sx = ps.x - ps.tz*2.6, sz = ps.z + ps.tx*2.6;
+    const tex = textTex([{t:'암벽 구간', size:64, serif:true, b:true}, {t:'밧줄을 잡고 오르세요', size:40}], 420, 210, '#7a5a3a', '#fff6e2', 'rgba(0,0,0,0.22)');
+    const sg = new THREE.Group(); sg.position.set(sx, height(sx, sz), sz); sg.rotation.y = Math.atan2(-ps.tx, -ps.tz) + 0.3;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 2.1, 6), wdW); pole.position.y = 1.05; sg.add(pole);
+    const brd = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.75, 0.07), [wdW, wdW, wdW, wdW, new THREE.MeshLambertMaterial({ map: tex }), wdW]); brd.position.set(0, 1.85, 0.11); sg.add(brd); world.add(sg);
+    climbs.push({ trail: true, sW, base: new THREE.Vector3(pb.x, yb, pb.z), edge: new THREE.Vector3(pe.x, yt + 0.02, pe.z), top: new THREE.Vector3(pt.x, yt, pt.z), rot: dir + Math.PI, done: false, near: false });
   });
 
   /* 계곡: a stream crossing the trail with stepping stones */
@@ -1520,6 +1526,7 @@ const Sound = {
         d[i]=(b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.11; b6=w*0.115926; }
     }
     const wd = white.getChannelData(0); for(let i=0;i<len;i++) wd[i] = Math.random()*2-1;
+    this.pinkBuf = pink;
     this.white = white;
     const loop = (buf) => { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.start(0, Math.random()*3); return s; };
 
@@ -1681,6 +1688,35 @@ const Sound = {
         o.connect(g); g.connect(this.master); if(this.send) g.connect(this.send); o.start(st); o.stop(st + 2.2); });
     });
   },
+  fireStart(){
+    const ctx = this.ctx; if(!ctx || this.fireNodes) return;
+    const roar = ctx.createBufferSource(); roar.buffer = this.pinkBuf || this.white; roar.loop = true;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380; const g = ctx.createGain(); g.gain.value = 0; g.gain.setTargetAtTime(0.16, ctx.currentTime, 0.8);
+    roar.connect(lp); lp.connect(g); g.connect(this.master); roar.start();
+    const pops = setInterval(() => { if(!this.ctx || !this.on) return; const n = 1 + Math.floor(Math.random()*3);
+      for(let i=0;i<n;i++){ const t = ctx.currentTime + Math.random()*0.25, s = ctx.createBufferSource(); s.buffer = this.white;
+        const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = rr(1200, 4500); bp.Q.value = 1.2;
+        const gg = ctx.createGain(), v = Math.random() < 0.15 ? rr(0.08, 0.14) : rr(0.012, 0.04);
+        gg.gain.setValueAtTime(0, t); gg.gain.linearRampToValueAtTime(v, t + 0.002); gg.gain.setTargetAtTime(0, t + 0.003, rr(0.006, 0.02));
+        s.connect(bp); bp.connect(gg); gg.connect(this.master); if(this.send) gg.connect(this.send); s.start(t, Math.random()*3, 0.08); } }, 180);
+    this.fireNodes = { roar, g, pops };
+  },
+  fireStop(){ const f = this.fireNodes; if(!f) return; clearInterval(f.pops); f.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.4); setTimeout(() => { try { f.roar.stop(); } catch(e){} }, 1500); this.fireNodes = null; },
+  hiss(){
+    const ctx = this.ctx; if(!ctx || !this.on) return;
+    const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = this.white; const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3800;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.05, t + 0.15); g.gain.setValueAtTime(0.05, t + 0.5); g.gain.linearRampToValueAtTime(0, t + 0.9);
+    let d = this.master; if(ctx.createStereoPanner){ const pn = ctx.createStereoPanner(); pn.pan.value = rr(-0.8, 0.8); pn.connect(this.master); d = pn; }
+    s.connect(hp); hp.connect(g); g.connect(d); s.start(t, Math.random()*2, 1);
+  },
+  growl(){
+    const ctx = this.ctx; if(!ctx || !this.on) return;
+    const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = this.pinkBuf || this.white; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 160; lp.Q.value = 4;
+    const am = ctx.createOscillator(), ag = ctx.createGain(); am.frequency.value = 23; ag.gain.value = 0.08; am.connect(ag);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.16, t + 0.4); g.gain.linearRampToValueAtTime(0.1, t + 1.1); g.gain.linearRampToValueAtTime(0, t + 1.6); ag.connect(g.gain);
+    let d = this.master; if(ctx.createStereoPanner){ const pn = ctx.createStereoPanner(); pn.pan.value = rr(-0.9, 0.9); pn.connect(this.master); d = pn; }
+    s.connect(lp); lp.connect(g); g.connect(d); if(this.send) g.connect(this.send); s.start(t, Math.random()*2, 1.7); am.start(t); am.stop(t + 1.7);
+  },
   crackle(){
     const ctx = this.ctx; if(!ctx || !this.on) return;
     const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = this.white;
@@ -1751,35 +1787,36 @@ const Sound = {
     });
   },
   footstep(){
+    // 흙 밟는 소리: heel + toe roll of filtered pink noise, a little soil grit, no tones
     const ctx = this.ctx; if(!ctx || !this.on) return;
     const t = ctx.currentTime + 0.005, surf = (typeof curSection === 'string' && curSection) || 'forest';
-    const out = ctx.createGain(); out.gain.value = surf === 'rock' ? 0.85 : 1; out.connect(this.steps);
-    // backpack fabric swish (very soft, close)
-    { const s = ctx.createBufferSource(); s.buffer = this.white; const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = rr(900, 1500); bp.Q.value = 0.5;
-      const g = ctx.createGain(), st = t + 0.03; g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(0.012, st + 0.05); g.gain.setTargetAtTime(0, st + 0.07, 0.05);
-      s.connect(bp); bp.connect(g); g.connect(this.steps); s.start(st, Math.random()*3, 0.3); }
-    // gear clinks: cup / carabiner / lantern / burner gently knocking
-    { const mask = typeof gearMask === 'function' ? gearMask() : 0, metal = [1, 2, 3, 5].filter(i => mask & (1 << i));
-      if(metal.length && Math.random() < 0.55){ const st = t + rr(0.05, 0.14), f = [3200, 2400, 1900, 2800][Math.floor(Math.random()*4)]*rr(0.95, 1.08);
-        [1, 2.7].forEach((m, k) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = f*m;
-          g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(k ? 0.003 : 0.012*Math.min(1.6, 0.6 + metal.length*0.25), st + 0.002); g.gain.setTargetAtTime(0, st + 0.004, k ? 0.02 : 0.07);
-          o.connect(g); g.connect(this.gearBus); if(this.send) g.connect(this.send); o.start(st); o.stop(st + 0.4); }); } }
-    // soft body thud
-    const th = ctx.createOscillator(), tg = ctx.createGain(); th.type = 'sine';
-    th.frequency.setValueAtTime(surf === 'stairs' ? 150 : 95, t); th.frequency.exponentialRampToValueAtTime(55, t + 0.07);
-    tg.gain.setValueAtTime(0, t); tg.gain.linearRampToValueAtTime(surf === 'stairs' ? 0.09 : 0.06, t + 0.006); tg.gain.setTargetAtTime(0, t + 0.012, 0.022);
-    th.connect(tg); tg.connect(out); th.start(t); th.stop(t + 0.15);
-    // texture grains: gravel / dry leaves / stone grit
-    const cfg = { rock:[2, 2600, 4200, 3.5, 0.025], forest:[6, 1400, 5200, 0.9, 0.022], valley:[4, 900, 2600, 1.0, 0.02], ridge:[5, 1800, 5600, 0.9, 0.02], stairs:[2, 700, 1500, 1.2, 0.015] }[surf] || [5, 1200, 4000, 1, 0.02];
-    const n = cfg[0] + Math.floor(Math.random()*2);
+    const cfg = { rock: [2600, 260, 0.75, 0.6], stairs: [1100, 140, 0.9, 0.35], valley: [1300, 130, 1, 1.1], forest: [1700, 150, 1, 1], ridge: [1900, 170, 0.95, 1.1] }[surf] || [1700, 150, 1, 1];
+    const buf = this.pinkBuf || this.white;
+    const part = (st, vol, len, lpF) => {
+      const s = ctx.createBufferSource(); s.buffer = buf; s.playbackRate.value = rr(0.75, 1.05);
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = cfg[1];
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = lpF; lp.Q.value = 0.4;
+      const pk = ctx.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = rr(320, 520); pk.gain.value = 5; pk.Q.value = 0.9;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(vol, st + 0.012); g.gain.setTargetAtTime(0, st + 0.018, len);
+      s.connect(hp); hp.connect(pk); pk.connect(lp); lp.connect(g); g.connect(this.steps); s.start(st, Math.random()*3, len*6 + 0.05);
+    };
+    const v = rr(0.75, 1.0)*cfg[2];
+    part(t, 0.16*v, 0.03, cfg[0]);                                   // heel
+    part(t + rr(0.05, 0.08), 0.1*v, 0.04, cfg[0]*1.15);              // toe roll
+    // soil grit: a few very soft grains in the upper mids
+    const n = Math.round((2 + Math.random()*3)*cfg[3]);
     for(let i=0;i<n;i++){
-      const st = t + 0.004 + Math.random()*0.07, s = ctx.createBufferSource(); s.buffer = this.white;
-      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = rr(cfg[1], cfg[2]); bp.Q.value = cfg[3];
-      const g = ctx.createGain(), len = rr(0.012, 0.035), vv = cfg[4]*rr(0.6, 1.4);
-      g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(vv, st + 0.002); g.gain.setTargetAtTime(0, st + 0.003, len*0.4);
-      s.connect(bp); bp.connect(g); g.connect(out); s.start(st, Math.random()*3, len + 0.05);
+      const st = t + 0.02 + Math.random()*0.1, s = ctx.createBufferSource(); s.buffer = this.white;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = rr(1800, 3200); bp.Q.value = 0.7;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(rr(0.004, 0.009), st + 0.003); g.gain.setTargetAtTime(0, st + 0.004, 0.012);
+      s.connect(bp); bp.connect(g); g.connect(this.steps); s.start(st, Math.random()*3, 0.08);
     }
+    // backpack fabric swish (very soft)
+    { const s = ctx.createBufferSource(); s.buffer = buf; const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = rr(900, 1400); bp.Q.value = 0.5;
+      const g = ctx.createGain(), st = t + 0.03; g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(0.01, st + 0.06); g.gain.setTargetAtTime(0, st + 0.08, 0.05);
+      s.connect(bp); bp.connect(g); g.connect(this.steps); s.start(st, Math.random()*3, 0.3); }
   },
+
   plip(vol, dest, pan){   // a single water droplet: fast upward pitch sweep
     const ctx = this.ctx, t = ctx.currentTime + Math.random()*0.05, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine';
     const f = rr(700, 1500); o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f*rr(2.2, 3.2), t + 0.05);
@@ -1932,7 +1969,7 @@ function syncPeers(peers){
     const ci = Math.abs(pr.c | 0) % JACKETS.length; if(r.c !== ci){ r.c = ci; r.h.jacketMat.color.setHex(JACKETS[ci]); }
     r.nick = cleanName(pr.n);
     applyGear(r.h, (+pr.gb || 0) & 255);
-    r.h.sitting = !!pr.si; r.h.lying = !!pr.ly; r.cy = clamp(+pr.cy || 0, 0, 8); r.h.climbing = !!pr.cl;
+    r.h.sitting = !!pr.si; r.h.lying = !!pr.ly; r.cy = clamp(+pr.cy || 0, -8, 8); r.h.climbing = !!pr.cl;
     if(r.name) processActions(r, pr, p.peer, false);
     if(!r.nick && p.by && !Online.names[p.by]) need.push(p.by);
     updateRemoteName(r);
@@ -2348,7 +2385,7 @@ function openTreasureBook(){
 
 /* ---------- 정상 보상: 별 · 배지 · 칭호 · 인증서 ---------- */
 let STARS = {}; try { STARS = JSON.parse(localStorage.getItem('sanhaeng-stars') || '{}') || {}; } catch(e){ STARS = {}; }
-function thirdStarInfo(){ return climbs.length ? { key: 'c', label: '암벽 오르기', ok: runStats.climbed } : { key: 'w', label: '약수 마시기', ok: runStats.drank }; }
+function thirdStarInfo(){ return { key: 'w', label: '약수 마시기', ok: runStats.drank }; }
 function starCount(id){ const r = STARS[id]; return r ? (r.s ? 1 : 0) + (r.t ? 1 : 0) + (r.x ? 1 : 0) : 0; }
 const TITLES = ['새내기 등산객', '산책하는 등산객', '주말 산꾼', '산 좋아하는 사람', '능선을 걷는 사람', '명산 순례자', '대한민국 명산 완등'];
 function myTitle(){ const n = MOUNTAINS.filter(m => STARS[m.id] && STARS[m.id].s).length, total = MOUNTAINS.reduce((a, m) => a + starCount(m.id), 0);
@@ -2572,9 +2609,19 @@ function openMap(){
   $('mapTitle').textContent = M.name + ' 등산 지도 · ' + M.peak + '까지 ' + fmtDist(Math.max(0, total - sPlayer)*METERS);
   $('mapModal').classList.remove('hidden');
 }
+let cfIcon = null;
+function campfireIcon(){
+  if(cfIcon) return cfIcon; const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d');
+  const bg = x.createRadialGradient(48, 52, 4, 48, 48, 48); bg.addColorStop(0, '#5a2a12'); bg.addColorStop(1, '#2a1a12'); x.fillStyle = bg; x.beginPath(); x.arc(48, 48, 46, 0, TAU); x.fill();
+  x.strokeStyle = '#7a4a2a'; x.lineWidth = 8; x.lineCap = 'round'; x.beginPath(); x.moveTo(24, 74); x.lineTo(70, 62); x.moveTo(72, 74); x.lineTo(26, 62); x.stroke();
+  const fl = x.createRadialGradient(48, 56, 2, 48, 46, 30); fl.addColorStop(0, '#fff2b0'); fl.addColorStop(0.4, '#ffb040'); fl.addColorStop(1, 'rgba(255,90,20,0)');
+  x.fillStyle = fl; x.beginPath(); x.moveTo(48, 16); x.quadraticCurveTo(70, 44, 60, 62); x.quadraticCurveTo(48, 70, 36, 62); x.quadraticCurveTo(26, 44, 48, 16); x.fill();
+  return (cfIcon = c.toDataURL());
+}
 function renderGearBar(){
-  const bar = $('gearBar'), mask = gearMask(), key = myJob + mask + (Gear.light ? 'L' : '') + (Gear.flash ? 'F' : '') + (Gear.zoom ? 'Z' : '');
+  const bar = $('gearBar'), mask = gearMask(), key = 'f' + myJob + mask + (Gear.light ? 'L' : '') + (Gear.flash ? 'F' : '') + (Gear.zoom ? 'Z' : '');
   if(bar.dataset.k === key) return; bar.dataset.k = key; bar.textContent = '';
+  { const b = document.createElement('button'); b.className = 'gb fire'; b.title = '모닥불 피우기'; b.setAttribute('aria-label', '모닥불 피우기'); const im = document.createElement('img'); im.src = campfireIcon(); b.appendChild(im); b.addEventListener('click', useCampfire); bar.appendChild(b); }
   (myJob === 'ranger' ? ['map', 'radio', 'binoc', 'flash', 'aid', 'whistle', 'sapling', 'flag'] : ['chair', 'mat', 'tent', 'bottle', 'stove', 'lantern', 'clip']).forEach(kind => {
     const i = TREASURES.findIndex(t => t.kind === kind); if(i < 0 || !(mask & (1 << i))) return;
     const b = document.createElement('button'); b.className = 'gb' + ((kind === 'lantern' && Gear.light) || (kind === 'flash' && Gear.flash) || (kind === 'binoc' && Gear.zoom) ? ' on' : '') + (kind === 'clip' ? ' passive' : '');
@@ -2582,6 +2629,110 @@ function renderGearBar(){
     b.title = GEAR_USE[kind].label; b.setAttribute('aria-label', GEAR_USE[kind].label);
     b.addEventListener('click', () => GEAR_USE[kind].fn()); bar.appendChild(b);
   });
+}
+
+/* ---------- 🔥 모닥불 ---------- */
+let fire = null;
+function useCampfire(){
+  if(!canUseGear()) return;
+  const sp = frontSpot(1.9), g = new THREE.Group(); g.position.set(sp.x, sp.y, sp.z);
+  const stoneM = new THREE.MeshStandardMaterial({ color: 0x77736a, roughness: 1, flatShading: true });
+  for(let i=0;i<9;i++){ const a = i/9*TAU, st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.17, 0), stoneM); st.position.set(Math.cos(a)*0.55, 0.06, Math.sin(a)*0.55); st.scale.y = 0.7; st.rotation.y = a*3; st.castShadow = true; g.add(st); }
+  const logM = new THREE.MeshStandardMaterial({ color: 0x5a3c26, roughness: 1, map: getAssets().bark });
+  for(let i=0;i<4;i++){ const lg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.75, 8), logM); lg.rotation.set(Math.PI/2 - 0.5, i*Math.PI/2, 0, 'YXZ'); lg.position.set(Math.sin(i*Math.PI/2)*0.14, 0.2, Math.cos(i*Math.PI/2)*0.14); lg.castShadow = true; g.add(lg); }
+  const ember = new THREE.Mesh(new THREE.CircleGeometry(0.32, 16), new THREE.MeshBasicMaterial({ color: 0xff7a2a })); ember.rotation.x = -Math.PI/2; ember.position.y = 0.03; g.add(ember);
+  const flames = [];
+  [[0xffd27a, 0.55, 0.0], [0xff8a2a, 0.75, 0.05], [0xff5a1a, 0.6, -0.05]].forEach(([c, sz, ox]) => { const f = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), color: c, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); f.position.set(ox, 0.45, 0); f.scale.set(sz, sz*1.6, 1); g.add(f); flames.push({ f, sz }); });
+  const n = 40, spos = new Float32Array(n*3), svel = []; for(let i=0;i<n;i++){ spos[i*3+1] = -9; svel.push(0); }
+  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(spos, 3));
+  const sparks = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffb060, size: 0.06, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); sparks.frustumCulled = false; g.add(sparks);
+  const light = new THREE.PointLight(0xff9a40, 0, 14, 1.4); light.position.y = 0.8; g.add(light);
+  scene.add(g);
+  fire = { g, flames, sparks, spos, light, n };
+  Sound.fireStart();
+  // sit facing the fire
+  const rot = sp.f, ox = Math.sin(rot), oz = Math.cos(rot), cx = px, cz = pz, cy = height(cx, cz);
+  const log = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.17, 0.9, 10), logM); log.rotation.z = Math.PI/2; log.rotation.y = rot; log.position.set(cx, cy + 0.17, cz); log.castShadow = true; scene.add(log);
+  sitDown({ x: cx, z: cz, y: cy + 0.06, ox, oz, rot, single: true, temp: log, onStand: () => { scene.remove(g); fire = null; Sound.fireStop(); },
+    msg: '🔥 타닥타닥 모닥불 · 불멍하며 쉬어가요 (산에선 원래 불 피우면 안 돼요! 여긴 게임이니까)' });
+}
+function updateFire(dt){
+  if(!fire) return;
+  fire.flames.forEach((q, i) => { const k = 1 + Math.sin(clock*(9 + i*3) + i)*0.12 + (Math.random() - 0.5)*0.12; q.f.scale.set(q.sz*k, q.sz*1.6*k*(1 + Math.sin(clock*5 + i)*0.1), 1); q.f.position.y = 0.42 + Math.sin(clock*7 + i)*0.03; });
+  fire.light.intensity = 2.0 + Math.sin(clock*11)*0.25 + Math.sin(clock*23)*0.15 + (Math.random() - 0.5)*0.2;
+  const p = fire.spos;
+  for(let i=0;i<fire.n;i++){ const k = i*3; if(p[k+1] < 0 || p[k+1] > 2.6){ if(Math.random() < dt*6){ p[k] = (Math.random() - 0.5)*0.3; p[k+1] = 0.3; p[k+2] = (Math.random() - 0.5)*0.3; } else continue; }
+    p[k+1] += dt*(0.8 + (i % 5)*0.15); p[k] += Math.sin(clock*3 + i)*dt*0.2; p[k+2] += Math.cos(clock*2.5 + i)*dt*0.2; }
+  fire.sparks.geometry.attributes.position.needsUpdate = true;
+}
+
+/* ---------- ⚠️ 등산로 밖: 뱀과 밤짐승 ---------- */
+const Danger = { level: 0, offT: 0, warned: false, snakes: [], eyes: [], hissT: 0, growlT: 0 };
+function buildDanger(){
+  const sm = [new THREE.MeshStandardMaterial({ color: 0x4f5a2a, roughness: 0.6 }), new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.6 })];
+  const seg = new THREE.SphereGeometry(0.1, 10, 8);
+  for(let k=0;k<7;k++){
+    const g = new THREE.Group(), parts = [];
+    for(let i=0;i<14;i++){ const m = new THREE.Mesh(seg, sm[(i + k) % 2]); const sc = i === 0 ? 1.35 : 1 - i*0.05; m.scale.set(sc, sc*0.75, sc); g.add(m); parts.push(m); }
+    const eyeM = new THREE.MeshBasicMaterial({ color: 0xffe14a }); [-1, 1].forEach(sd => { const e = new THREE.Mesh(new THREE.SphereGeometry(0.018, 6, 4), eyeM); e.position.set(sd*0.05, 0.04, 0.07); parts[0].add(e); });
+    g.visible = false; scene.add(g); Danger.snakes.push({ g, parts, x: 0, z: 0, a: 0, ph: Math.random()*10, on: false });
+  }
+  const eyeT = glowTex();
+  for(let k=0;k<14;k++){
+    const g = new THREE.Group(); [-0.13, 0.13].forEach(dx => { const e = new THREE.Sprite(new THREE.SpriteMaterial({ map: eyeT, color: k % 3 ? 0xffd23a : 0xff5a2a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false })); e.scale.setScalar(0.55); e.position.x = dx; g.add(e); });
+    g.visible = false; scene.add(g); Danger.eyes.push({ g, blink: Math.random()*5, on: false });
+  }
+}
+function spawnAround(dist, awayFromTrail){
+  const n = nearest(px, pz); let ax = 0, az = 0;
+  if(n){ const p = pointAt(n.s); ax = px - p.x; az = pz - p.z; const L = Math.hypot(ax, az) || 1; ax /= L; az /= L; }
+  const a = Math.atan2(ax, az) + (Math.random() - 0.5)*2.2, d = dist*(0.7 + Math.random()*0.6);
+  return awayFromTrail ? [px + Math.sin(a)*d, pz + Math.cos(a)*d] : [px + Math.sin(Math.random()*TAU)*d, pz + Math.cos(Math.random()*TAU)*d];
+}
+function pushBack(msg){
+  const p = pointAt(sPlayer), fade = $('koFade'); Slide.shake = 0.4; Move.target = null; setAuto(false);
+  $('koText').textContent = msg; fade.classList.add('show');
+  setTimeout(() => { px = p.x; pz = p.z; py = height(px, pz); camInit = false; Danger.offT = 0; setTimeout(() => fade.classList.remove('show'), 900); }, 700);
+}
+function updateDanger(dt, t){
+  if(!Danger.snakes.length) buildDanger();
+  const active = started && !Climb.on && !Rest.on && !summitShown;
+  const off = active ? playerD : 0, target = active ? smoothstep(6.5, 13, off) : 0;
+  Danger.level += (target - Danger.level)*Math.min(1, dt*(target > Danger.level ? 1.5 : 0.8));
+  if(target > 0.1 && !Danger.warned){ Danger.warned = true; toast('⚠️ 등산로 밖은 위험해요 · 수풀에서 뭔가 꿈틀거려요…', 3); Sound.hiss(); }
+  if(target < 0.02) Danger.warned = false;
+  // eyes in the bushes
+  const nEyes = Math.round(Danger.level*Danger.eyes.length);
+  Danger.eyes.forEach((e, i) => {
+    const want = i < nEyes;
+    if(want && !e.on){ const q = spawnAround(9, true); e.g.position.set(q[0], height(q[0], q[1]) + 0.35 + Math.random()*0.5, q[1]); e.on = true; }
+    if(!want) e.on = false;
+    e.g.visible = e.on; if(!e.on) return;
+    e.blink -= dt; const open = e.blink > 0.15 || e.blink < 0; if(e.blink < -0.1) e.blink = 2 + Math.random()*4;
+    e.g.children.forEach(c => { c.material.opacity = open ? 0.55 + 0.45*TOD.night : 0; });
+    e.g.lookAt(camera.position);
+    if(Math.hypot(e.g.position.x - px, e.g.position.z - pz) > 16) e.on = false;
+  });
+  // snakes slithering toward you
+  const nSn = Math.round(Danger.level*Danger.snakes.length);
+  Danger.snakes.forEach((sn, i) => {
+    const want = i < nSn;
+    if(want && !sn.on){ const q = spawnAround(5, true); sn.x = q[0]; sn.z = q[1]; sn.on = true; sn.hist = []; Danger.hissT = 0; }
+    if(!want) sn.on = false;
+    sn.g.visible = sn.on; if(!sn.on) return;
+    const toA = Math.atan2(px - sn.x, pz - sn.z); sn.a += angDiff(toA + Math.sin(t*2 + sn.ph)*0.6, sn.a)*Math.min(1, dt*3);
+    const spd = 1.4 + Danger.level*1.6; sn.x += Math.sin(sn.a)*spd*dt; sn.z += Math.cos(sn.a)*spd*dt;
+    sn.hist.unshift([sn.x, sn.z]); if(sn.hist.length > 60) sn.hist.length = 60;
+    sn.parts.forEach((m, j) => { const h = sn.hist[Math.min(sn.hist.length - 1, j*3)], wig = Math.sin(t*9 - j*0.8 + sn.ph)*0.07;
+      const x = h[0] + Math.cos(sn.a)*wig, z = h[1] - Math.sin(sn.a)*wig; m.position.set(x, height(x, z) + 0.06 + (j === 0 ? 0.05 : 0), z); if(j === 0) m.rotation.y = sn.a; });
+    if(Math.hypot(sn.x - px, sn.z - pz) < 0.7 && active){ Sound.hiss(); pushBack('🐍 앗, 뱀이다! 깜짝 놀라 등산로로 뛰어 돌아왔어요'); Danger.snakes.forEach(s2 => s2.on = false); }
+  });
+  // sounds
+  Danger.hissT -= dt; Danger.growlT -= dt;
+  if(Danger.level > 0.3 && Danger.hissT <= 0){ Sound.hiss(); Danger.hissT = 2.5 + Math.random()*3; }
+  if(Danger.level > 0.55 && Danger.growlT <= 0){ Sound.growl(); Danger.growlT = 4 + Math.random()*4; }
+  // too deep in the bushes
+  if(active && off > 15){ Danger.offT += dt; if(Danger.offT > 1.2) pushBack('🐾 으르렁… 밤짐승들이 몰려와 등산로로 도망쳤어요'); } else Danger.offT = 0;
 }
 
 /* ---------- 달리기 ---------- */
@@ -2779,12 +2930,16 @@ function resetToStart(){
 const Rest = { on: false, b: null, seat: 0, msgT: 0 };
 const Climb = { on: false, phase: '', t: 0, c: null };
 let runStats = { climbed: false, drank: false };
-function nearClimb(){ let best = null, bd = 2.8; climbs.forEach(c => { const d = Math.hypot(c.base.x - px, c.base.z - pz); if(d < bd){ bd = d; best = c; } }); return best; }
+function nearClimb(){ let best = null, bd = 3.2; climbs.forEach(c => { const d = Math.hypot(c.base.x - px, c.base.z - pz); if(d < bd){ bd = d; best = c; } }); return best; }
 function startClimb(c){
   if(!c || Climb.on) return;
-  if(Rest.on) standUp(); setAuto(false); Move.target = null; setRun(false);
+  Climb.resume = auto; if(Rest.on) standUp(); setAuto(false); Move.target = null; setRun(false);
   Climb.on = true; Climb.phase = 'up'; Climb.t = 0; Climb.c = c; player.climbing = true;
   toast(hasGear('clip') ? '🔗 카라비너를 걸고 안전하게, 더 빨리 올라가요' : '🧗 밧줄을 꽉 잡고 올라가요', 2.5); Online.sendT = 0;
+}
+function startDescend(c){
+  if(!c || Climb.on) return; if(Rest.on) standUp(); setAuto(false); Move.target = null; setRun(false);
+  Climb.on = true; Climb.phase = 'down'; Climb.t = 0; Climb.c = c; player.climbing = true; toast('🧗 밧줄을 잡고 조심조심 내려가요', 2.5); Online.sendT = 0;
 }
 function climbDown(){ if(Climb.on && Climb.phase === 'top'){ Climb.phase = 'down'; Climb.t = 0; player.climbing = true; $('btnClimbDown').classList.add('hidden'); Online.sendT = 0; } }
 const lerp3 = (a, b, k) => [a.x + (b.x - a.x)*k, a.y + (b.y - a.y)*k, a.z + (b.z - a.z)*k];
@@ -2794,16 +2949,18 @@ function updateClimb(dt, t){
     Climb.t += dt/(hasGear('clip') ? 3.2 : 5.5); const k = Math.min(1, Climb.t);
     q = k < 0.86 ? lerp3(c.base, c.edge, k/0.86) : lerp3(c.edge, c.top, (k - 0.86)/0.14);
     facing = c.rot + Math.PI; if(Math.floor(t*2.2) !== Math.floor((t - dt)*2.2)) Sound.footstep();
-    if(k >= 1){ Climb.phase = 'top'; player.climbing = false; $('btnClimbDown').classList.remove('hidden');
+    if(k >= 1 && c.trail){ Climb.on = false; Climb.phase = ''; player.climbing = false; facing = c.rot + Math.PI; player.cheerT = 1.4; Online.sendT = 0; sPlayer = c.sW + 1.8; if(Climb.resume) setTimeout(() => setAuto(true), 600);
+      if(!runStats.climbed){ runStats.climbed = true; toast('🧗 암벽을 올랐어요! 정상이 바로 앞이에요', 3.5); Sound.chime(); } }
+    else if(k >= 1){ Climb.phase = 'top'; player.climbing = false; $('btnClimbDown').classList.remove('hidden');
       if(!runStats.climbed){ runStats.climbed = true; toast('🧗 암벽 위에 올랐어요! ⭐ 별 하나 획득', 3.5); Sound.chime(); } else toast('🧗 다시 암벽 위! 멀리까지 보여요', 3);
       player.cheerT = 1.6; Online.sendT = 0; }
   } else if(Climb.phase === 'top'){
     q = [c.top.x, c.top.y, c.top.z]; facing = c.rot;
   } else {
-    Climb.t += dt/3; const k = Math.min(1, Climb.t);
+    Climb.t += dt/(c.trail ? (hasGear('clip') ? 3 : 4.5) : 3); const k = Math.min(1, Climb.t);
     q = k < 0.14 ? lerp3(c.top, c.edge, k/0.14) : lerp3(c.edge, c.base, (k - 0.14)/0.86);
     facing = c.rot + Math.PI;
-    if(k >= 1){ Climb.on = false; Climb.phase = ''; player.climbing = false; facing = c.rot; Online.sendT = 0; }
+    if(k >= 1){ Climb.on = false; Climb.phase = ''; player.climbing = false; facing = c.trail ? c.rot : c.rot; Online.sendT = 0; }
   }
   px = q[0]; py = q[1]; pz = q[2];
   player.root.position.set(px, py, pz); player.root.rotation.y = facing;
@@ -2825,7 +2982,7 @@ function sitDown(b){
 function standUp(){
   if(!Rest.on) return;
   Rest.on = false; player.sitting = false; player.lying = false; player.root.rotation.x = 0;
-  const b = Rest.b; if(b.temp){ scene.remove(b.temp); } px = b.x + b.ox*-1.2; pz = b.z + b.oz*-1.2; py = height(px, pz); facing = b.rot + Math.PI;
+  const b = Rest.b; if(b.temp){ scene.remove(b.temp); } if(b.onStand) b.onStand(); px = b.x + b.ox*-1.2; pz = b.z + b.oz*-1.2; py = height(px, pz); facing = b.rot + Math.PI;
   $('hud').classList.remove('resting'); $('btnStand').classList.add('hidden'); $('restMsg').classList.remove('show');
   Online.sendT = 0;
 }
@@ -2871,7 +3028,13 @@ function updatePlayer(dt, t){
     if(total - sPlayer < 2.2){ setAuto(false); }
     else if(L > 0.15){ mx = dx/L; mz = dz/L; spd = run ? 6.0 : 2.9; }
   }
-  px += mx*spd*dt; pz += mz*spd*dt;
+  { const ox = px, oz = pz; px += mx*spd*dt; pz += mz*spd*dt;
+    const W = climbs.find(c => c.trail);
+    if(W && spd > 0.05){ const n0 = nearest(ox, oz), n1 = nearest(px, pz);
+      if(n0 && n1 && n0.d < 10 && n1.d < 10){
+        if(n0.s < W.sW - 1.8 && n1.s >= W.sW - 1.8){ px = ox; pz = oz; if(auto || Move.target) startClimb(W); else if(!W.warned){ W.warned = true; toast('🧗 암벽이에요 · ‘암벽 오르기’를 눌러 올라가요', 2.5); setTimeout(() => W.warned = false, 3000); } }
+        else if(n0.s > W.sW + 1.4 && n1.s <= W.sW + 1.4){ px = ox; pz = oz; startDescend(W); }
+      } } }
   const r = Math.hypot(px,pz); if(r > 250){ px *= 250/r; pz *= 250/r; }
   if(spd > 0.1) facing += angDiff(Math.atan2(mx,mz), facing) * Math.min(1, dt*9);
   py += (height(px,pz) - py) * Math.min(1, dt*14);
@@ -2921,7 +3084,7 @@ function updateCamera(dt){
     camera.position.x += (cx - camera.position.x)*k; camera.position.y += (cy - camera.position.y)*k; camera.position.z += (cz - camera.position.z)*k;
     camTarget.set(px + b.ox*6 + b.oz*sw*4, py + 22, pz + b.oz*6 - b.ox*sw*4); camera.lookAt(camTarget); return;
   }
-  const pv = !started, rs = Rest.on && started, D = pv ? 8.5 : rs ? 4.6 : dist, P = pv ? 0.1 : rs ? 0.42 : pitch;
+  const pv = !started, rs = Rest.on && started, rf = rs && fire, D = pv ? 8.5 : rf ? 6.2 : rs ? 4.6 : dist, P = pv ? 0.1 : rf ? 0.62 : rs ? 0.42 : pitch;
   if(pv !== viewShifted){ viewShifted = pv; if(pv) camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight*0.27, innerWidth, innerHeight); else camera.clearViewOffset(); }
   const tx = px, ty = py + (pv ? 1.05 : rs ? 1.9 : 1.5), tz = pz;
   const cp = Math.cos(P), sp = Math.sin(P);
@@ -3062,7 +3225,7 @@ $('btnClimb').addEventListener('click', () => startClimb(nearClimb()));
 $('btnClimbDown').addEventListener('click', climbDown);
 $('btnStand').addEventListener('click', standUp);
 addEventListener('keydown', e => { if(!started || e.target === $('nick')) return; if(e.code === 'KeyE'){ if(Act.target) doAction(); else if(Rest.on) standUp(); else if(Climb.on) climbDown(); else if(nearClimb()) startClimb(nearClimb()); else if(nearBench()) sitDown(nearBench()); else drinkWater(); } });
-const MIX_LABELS = [['birds','🐦 새소리'], ['wind','🍃 바람'], ['water','💧 물소리'], ['bugs','🦗 풀벌레'], ['rain','🌧️ 빗소리'], ['steps','👣 발소리'], ['gear','🔔 장비 달그락']];
+const MIX_LABELS = [['birds','🐦 새소리'], ['wind','🍃 바람'], ['water','💧 물소리'], ['bugs','🦗 풀벌레'], ['rain','🌧️ 빗소리'], ['steps','👣 발소리']];
 MIX_LABELS.forEach(([k, lab]) => {
   const row = document.createElement('label'); row.className = 'mixrow';
   const a = document.createElement('span'); a.textContent = lab;
@@ -3109,7 +3272,7 @@ function frame(now){
   if(started) updatePlayer(dt, clock);
   else { yaw += dt*0.06; animHiker(player, dt, 0, clock); player.root.position.set(px,py,pz); player.root.rotation.y = yaw + Math.PI; }
   updateNPCs(dt, clock);
-  updateTreasures(dt, clock); updateAnimals(dt, clock); updateLandslide(dt); updateBurst(dt); updateSteam(dt); updateLantern(dt); updateRangerFx(dt); updateScenery(dt);
+  updateTreasures(dt, clock); updateAnimals(dt, clock); updateLandslide(dt); updateBurst(dt); updateSteam(dt); updateLantern(dt); updateRangerFx(dt); updateFire(dt); updateDanger(dt, clock); updateScenery(dt);
   if(started) renderGearBar();
   { let wd = 1e9; springs.forEach(w => { w.water.scale.setScalar(1 + Math.sin(clock*5 + w.x)*0.015); w.dippers.forEach((d, i) => d.rotation.z = Math.sin(clock*1.6 + i*1.3)*0.05*U.uWind.value); w.stream.material.opacity = 0.55 + Math.sin(clock*23 + w.z)*0.15; wd = Math.min(wd, Math.hypot(w.x - px, w.z - pz)); });
     let sv = 0; streams.forEach(st => { st.tex.offset.y -= dt*0.6; const dx = px - st.x, dz = pz - st.z, along = clamp(dx*st.ax + dz*st.az, -st.len/2, st.len/2);
@@ -3169,9 +3332,9 @@ function renderMountainPicker(){
     const b = document.createElement('button'); b.className = 'mt' + (m.id === M.id ? ' sel' : '');
     const n = document.createElement('b'); n.textContent = m.name;
     const e = document.createElement('span'); e.textContent = m.peak + ' ' + m.elev.toLocaleString('ko-KR') + 'm';
-    const t = document.createElement('span'); const cs = COURSES[m.id]; t.textContent = cs ? [...new Set(cs.sec.map(q => SECTION_INFO[q[2]].ic))].join('') + ' ' + m.tag : m.tag;
+    const t = document.createElement('span'); const cs = COURSES[m.id]; t.textContent = m.tag;
     b.append(n, e, t);
-    { const r = STARS[m.id]; if(r && r.s){ const md = document.createElement('span'); md.className = 'medal'; const k = starCount(m.id); md.textContent = '🏅 ' + '★'.repeat(k) + '☆'.repeat(3 - k); b.appendChild(md); } }
+    { const r = STARS[m.id]; if(r && r.s){ const md = document.createElement('span'); md.className = 'medal'; const k = starCount(m.id); md.textContent = '★'.repeat(k) + '☆'.repeat(3 - k); b.appendChild(md); } }
     if(mtCounts[m.id]){ const l = document.createElement('span'); l.className = 'live'; l.textContent = '● ' + mtCounts[m.id] + '명 오르는 중'; b.appendChild(l); }
     b.addEventListener('click', () => { if(m.id === M.id) return; switchMountain(m.id); });
     box.appendChild(b);
