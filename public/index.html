@@ -122,6 +122,7 @@
             font-family:inherit; font-size:15px; color:#fff; background:#b4532c; box-shadow:0 6px 20px rgba(120,40,10,0.35); animation:pulse 1.4s ease-in-out infinite; }
   #btnAct:disabled { background:#9a8f80; animation:none; }
   @keyframes pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.06); } }
+  #btnDrink { position:absolute; right:18px; bottom:284px; pointer-events:auto; border:none; cursor:pointer; padding:13px 18px; border-radius:999px; font-family:inherit; font-size:15px; color:#fff; background:#3f86a8; box-shadow:0 6px 20px rgba(20,60,80,0.3); }
   #btnRest { position:absolute; right:18px; bottom:284px; pointer-events:auto; border:none; cursor:pointer; padding:13px 18px; border-radius:999px;
              font-family:inherit; font-size:15px; color:#fff; background:#4f6b45; box-shadow:0 6px 20px rgba(30,50,25,0.3); }
   #btnStand { position:absolute; left:50%; bottom:34px; transform:translateX(-50%); pointer-events:auto; border:none; cursor:pointer; padding:13px 26px; border-radius:999px;
@@ -172,6 +173,7 @@
   <div id="players"></div>
   <button id="btnAct" class="hidden"></button>
   <button id="btnRest" class="hidden">🪑 앉아서 쉬기</button>
+  <button id="btnDrink" class="hidden">💧 약수 마시기</button>
   <button id="btnStand" class="hidden">일어나기</button>
   <div id="restMsg"></div>
   <div id="emotes">
@@ -250,6 +252,7 @@
       <li>화면을 드래그하면 둘러보기 · 두 손가락/휠로 거리 조절</li>
       <li>‘길 따라 걷기’를 켜면 알아서 등산로를 따라 올라가요</li>
       <li>왼쪽 아래 🏃 버튼으로 달리기를 켜고 끌 수 있어요 (PC는 Shift). 오래 달리면 숨이 차요</li>
+      <li>💧 약수터에서 물을 마시면 달리기 체력이 다시 가득 차요</li>
       <li>⚠️ 가끔 산사태가 나요. 우르릉 소리가 나면 옆으로 달려 피하세요. 휩쓸리면 지난 쉼터에서 다시 시작해요</li>
       <li>쉼터 벤치 가까이에서 ‘🪑 앉아서 쉬기’를 누르면 앉아서 경치를 볼 수 있어요</li>
       <li>오른쪽 위 문 버튼으로 산에서 나갔다가, 다시 들어오면 있던 자리에서 이어서 걸어요</li>
@@ -615,12 +618,16 @@ function textTex(lines, w, h, bg, fg, border){
 }
 const fmtDist = m => m >= 1000 ? (m/1000).toFixed(1) + 'km' : Math.round(m/10)*10 + 'm';
 
-const ribbons = [], benches = [], clouds = [];
+const ribbons = [], benches = [], clouds = [], springs = [];
 let world = null, groundMesh = null;
 let summitPos, summitY;
 
-let restSpots = [];
+let restSpots = [], springSpots = [];
 function computeRestSpots(){
+  springSpots = [0.17, 0.69].map(f => {
+    const p = pointAt(total*f); let ix = -p.x, iz = -p.z; const L = Math.hypot(ix, iz) || 1; ix /= L; iz /= L;
+    return { x: p.x + ix*4.0, z: p.z + iz*4.0, ix, iz, f };
+  });
   restSpots = [0.3, 0.56, 0.82].map(f => {
     const p = pointAt(total*f); let ox = p.x, oz = p.z; const L = Math.hypot(ox, oz) || 1; ox /= L; oz /= L;
     const x = p.x + ox*4.6, z = p.z + oz*4.6;
@@ -628,6 +635,7 @@ function computeRestSpots(){
   });
 }
 function blocksView(x, z){
+  for(const w of springSpots) if(Math.hypot(x - w.x, z - w.z) < 5) return true;
   for(const r of restSpots){
     const dx = x - r.x, dz = z - r.z, d = Math.hypot(dx, dz);
     if(d < 7) return true;
@@ -840,6 +848,35 @@ function buildWorld(){
     benches.push({ x: r.x, z: r.z, y, ox: r.ox, oz: r.oz, rot, near: false, idx: ri });
   });
 
+  /* 약수터: rock face, bamboo spout, stone basin, gourd ladle, sign */
+  springs.length = 0;
+  springSpots.forEach((w, wi) => {
+    const y = height(w.x, w.z), g = new THREE.Group(); g.position.set(w.x, y, w.z); g.rotation.y = Math.atan2(-w.ix, -w.iz); // face the trail
+    const rg = new THREE.IcosahedronGeometry(1, 2); jitterGeo(rg, 0.35, 1.2, 11 + wi); rg.computeVertexNormals();
+    const rockGeo2 = mergeParts([{ geo: rg, color: (x, yy, z, nx, ny) => { const m = smoothstep(0.35, 0.85, ny)*0.8, v = 0.62 + (vnoise(x*3, z*3) - 0.5)*0.2; return [v*(1-m) + 0.36*m, v*(1-m) + 0.5*m, v*(1-m) + 0.26*m]; } }]);
+    const rock = new THREE.Mesh(rockGeo2, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true }));
+    rock.scale.set(1.6, 1.25, 1.0); rock.position.set(0, 0.7, -1.15); g.add(rock);
+    const stoneM = new THREE.MeshStandardMaterial({ color: 0x9a968c, roughness: 0.95 });
+    const basin = new THREE.Mesh(latheSmooth([[0.001,0.0],[0.55,0.0],[0.62,0.08],[0.64,0.42],[0.58,0.46],[0.52,0.4],[0.5,0.14],[0.001,0.14]], 36, 30), stoneM);
+    basin.position.set(0, 0, 0.05); g.add(basin);
+    const water = new THREE.Mesh(new THREE.CircleGeometry(0.52, 32), new THREE.MeshStandardMaterial({ color: 0x6fa6c4, roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.85 }));
+    water.rotation.x = -Math.PI/2; water.position.set(0, 0.36, 0.05); g.add(water);
+    const bamboo = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.0, 14), new THREE.MeshStandardMaterial({ color: 0x9fae58, roughness: 0.6 }));
+    bamboo.rotation.x = Math.PI/2 - 0.35; bamboo.position.set(0, 0.98, -0.5); g.add(bamboo);
+    const stream = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.026, 0.52, 8), new THREE.MeshStandardMaterial({ color: 0xbfe2f2, roughness: 0.05, transparent: true, opacity: 0.7, emissive: 0x24404c }));
+    stream.position.set(0, 0.68, -0.04); g.add(stream);
+    const gourd = new THREE.Mesh(new THREE.SphereGeometry(0.13, 20, 12, 0, TAU, Math.PI/2, Math.PI/2), new THREE.MeshStandardMaterial({ color: 0xd8b06a, roughness: 0.7, side: THREE.DoubleSide }));
+    gourd.position.set(0.5, 0.5, 0.25); g.add(gourd);
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.36, 8), new THREE.MeshStandardMaterial({ color: 0xb8904e }));
+    handle.rotation.z = Math.PI/2 - 0.2; handle.position.set(0.73, 0.52, 0.25); g.add(handle);
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.3, 8), wood); post.position.set(-1.0, 0.65, 0.1); g.add(post);
+    const tex = textTex([{t:'약수터', size:78, serif:true, b:true}, {t:'한 모금 쉬어가요', size:38}], 384, 210, '#7a5a3a', '#fff6e2', 'rgba(0,0,0,0.22)');
+    const sb = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.44, 0.05), [wood, wood, wood, wood, new THREE.MeshLambertMaterial({ map: tex }), wood]); sb.position.set(-1.0, 1.42, 0.13); g.add(sb);
+    g.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+    world.add(g);
+    springs.push({ x: w.x, z: w.z, water, stream, near: false });
+  });
+
   /* summit: 정상석 + 돌탑 */
   const end = path[N-1]; summitPos = { x: end.x, z: end.z }; summitY = height(end.x, end.z);
   const endT = pointAt(total - 3);
@@ -1014,7 +1051,7 @@ function makeHiker(o){
   armL.rotation.z = -0.12; armR.rotation.z = 0.12;
   root.traverse(m => { if(m.isMesh) m.castShadow = true; });
   scene.add(root);
-  return { root, upper, legL, legR, armL, armR, eyes, phase: 0, spd: 0, jacketMat: accent, waveT: 0, cheerT: 0, grabT: 0, whistleT: 0, blinkT: 2 + Math.random()*3, job };
+  return { root, upper, legL, legR, armL, armR, eyes, phase: 0, spd: 0, jacketMat: accent, waveT: 0, cheerT: 0, grabT: 0, whistleT: 0, drinkT: 0, blinkT: 2 + Math.random()*3, job };
 }
 function animHiker(h, dt, spd, t){
   h.spd += (spd - h.spd) * Math.min(1, dt*8);
@@ -1033,6 +1070,7 @@ function animHiker(h, dt, spd, t){
   h.blinkT -= dt; const bl = h.blinkT < 0.12 ? 0.15 : 1; if(h.blinkT < 0) h.blinkT = 2.5 + Math.random()*3.5;
   if(h.eyes) h.eyes.forEach(e => e.scale.y = 1.15*bl);
   if(h.grabT > 0){ h.grabT -= dt; const k = Math.sin(Math.min(1, (0.7 - h.grabT)/0.7)*Math.PI); h.armR.rotation.x = -1.5*k; h.armR.rotation.z = 0.12 - 0.5*k; }
+  if(h.drinkT > 0){ h.drinkT -= dt; const k = Math.min(1, (1.8 - h.drinkT)*4, h.drinkT*4); h.armR.rotation.x = -2.25*k; h.armR.rotation.z = 0.12 - 0.45*k; h.upper.rotation.x = -0.12*k; } else if(h.upper) h.upper.rotation.x = 0;
   if(h.whistleT > 0){ h.whistleT -= dt; h.armR.rotation.x = -2.55; h.armR.rotation.z = -0.55; }
   if(h.root.userData.whistle) h.root.userData.whistle.visible = h.whistleT > 0;
   if(h.waveT > 0){ h.waveT -= dt; h.armR.rotation.x = -2.75; h.armR.rotation.z = 0.15 + 0.4*Math.sin(t*11); }
@@ -1104,6 +1142,13 @@ const Sound = {
     this.windGain = ctx.createGain(); this.windGain.gain.value = 0.15;
     loop(pink).connect(this.windLP); this.windLP.connect(this.windGain); this.windGain.connect(this.master);
 
+    // spring water trickle (volume follows distance to the nearest 약수터)
+    const wsrc = loop(white); const wbp = ctx.createBiquadFilter(); wbp.type = 'bandpass'; wbp.frequency.value = 1700; wbp.Q.value = 1.4;
+    const wlp = ctx.createBiquadFilter(); wlp.type = 'lowpass'; wlp.frequency.value = 3200;
+    this.waterGain = ctx.createGain(); this.waterGain.gain.value = 0;
+    const bub = ctx.createBiquadFilter(); bub.type = 'lowpass'; bub.frequency.value = 9; const bubG = ctx.createGain(); bubG.gain.value = 0.6;
+    loop(white).connect(bub); bub.connect(bubG); bubG.connect(wbp.frequency);
+    wsrc.connect(wbp); wbp.connect(wlp); wlp.connect(this.waterGain); this.waterGain.connect(this.master);
     // birds bus with a soft forest echo
     this.birds = ctx.createGain(); this.birds.gain.value = 1; this.birds.connect(this.master);
     const delay = ctx.createDelay(1.0); delay.delayTime.value = 0.21;
@@ -1178,6 +1223,18 @@ const Sound = {
     for(let i=0;i<14;i++){ const tt = t + 0.05 + i*0.055; g.gain.exponentialRampToValueAtTime(0.09, tt + 0.01); g.gain.exponentialRampToValueAtTime(0.005, tt + 0.045); }
     g.gain.exponentialRampToValueAtTime(0.0001, t + 1.0);
     s.connect(lp); lp.connect(g); g.connect(this.master); s.start(t, Math.random()*2, 1.1);
+  },
+  setWater(v){ if(!this.ctx || !this.waterGain) return; this.waterGain.gain.setTargetAtTime(0.11*v, this.ctx.currentTime, 0.3); },
+  gulp(){
+    const ctx = this.ctx; if(!ctx || !this.on) return;
+    const t = ctx.currentTime;
+    [0.35, 0.75, 1.15].forEach(d => {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine';
+      o.frequency.setValueAtTime(260, t+d); o.frequency.exponentialRampToValueAtTime(130, t+d+0.12);
+      g.gain.setValueAtTime(0.0001, t+d); g.gain.exponentialRampToValueAtTime(0.12, t+d+0.02); g.gain.exponentialRampToValueAtTime(0.0001, t+d+0.16);
+      o.connect(g); g.connect(this.master); o.start(t+d); o.stop(t+d+0.2);
+    });
+    this.chime();
   },
   rumble(sec){
     const ctx = this.ctx; if(!ctx || !this.on) return;
@@ -1704,10 +1761,21 @@ function processActions(r, pr, peer, fresh){
     }
   }
 }
+function nearSpring(){ let best = null, bd = 3.0; springs.forEach(w => { const d = Math.hypot(w.x - px, w.z - pz); if(d < bd){ bd = d; best = w; } }); return best; }
+function drinkWater(){
+  const w = nearSpring(); if(!w || player.drinkT > 0) return;
+  setAuto(false); Move.target = null;
+  facing = Math.atan2(w.x - px, w.z - pz); player.drinkT = 1.8;
+  Run.st = 100; updateRunButton();
+  Sound.gulp();
+  toast('💧 시원한 약수 한 모금! 기운이 다시 차올랐어요', 3);
+}
 function updateRestButton(){
   const btn = $('btnRest'); const b = started && !Rest.on ? nearBench() : null;
   const actShown = !$('btnAct').classList.contains('hidden');
   btn.classList.toggle('hidden', !b || actShown);
+  const dw = started && !Rest.on && !actShown && !b ? nearSpring() : null;
+  $('btnDrink').classList.toggle('hidden', !dw);
 }
 function updateActionButton(dt){
   Act.cool = Math.max(0, Act.cool - dt);
@@ -1805,7 +1873,8 @@ function updatePlayer(dt, t){
     }
   }
   let mx=0, mz=0, spd=0;
-  if(paused){ /* resting */ }
+  if(player.drinkT > 0 && il < 0.3){ /* drinking */ }
+  else if(paused){ /* resting */ }
   else if(il > 0.08){
     if(auto) setAuto(false);
     Move.target = null;
@@ -1990,8 +2059,9 @@ $('btnAuto').addEventListener('click', () => setAuto(!auto));
 $('btnRun').addEventListener('click', () => setRun(!Run.on));
 $('btnAct').addEventListener('click', doAction);
 $('btnRest').addEventListener('click', () => sitDown(nearBench()));
+$('btnDrink').addEventListener('click', drinkWater);
 $('btnStand').addEventListener('click', standUp);
-addEventListener('keydown', e => { if(!started || e.target === $('nick')) return; if(e.code === 'KeyE'){ if(Act.target) doAction(); else if(Rest.on) standUp(); else sitDown(nearBench()); } });
+addEventListener('keydown', e => { if(!started || e.target === $('nick')) return; if(e.code === 'KeyE'){ if(Act.target) doAction(); else if(Rest.on) standUp(); else if(nearBench()) sitDown(nearBench()); else drinkWater(); } });
 $('btnSound').addEventListener('click', () => { const on = Sound.toggle(); $('btnSound').innerHTML = on ? ICON_ON : ICON_OFF; });
 $('btnHelp').addEventListener('click', () => $('help').classList.remove('hidden'));
 $('btnHelpClose').addEventListener('click', () => $('help').classList.add('hidden'));
@@ -2026,6 +2096,9 @@ function frame(now){
   else { yaw += dt*0.06; animHiker(player, dt, 0, clock); player.root.position.set(px,py,pz); player.root.rotation.y = yaw + Math.PI; }
   updateNPCs(dt, clock);
   updateTreasures(dt, clock); updateAnimals(dt, clock); updateLandslide(dt);
+  { let wd = 1e9; springs.forEach(w => { w.water.scale.setScalar(1 + Math.sin(clock*5 + w.x)*0.015); w.stream.material.opacity = 0.55 + Math.sin(clock*23 + w.z)*0.15; wd = Math.min(wd, Math.hypot(w.x - px, w.z - pz)); });
+    Sound.setWater(started ? 1 - smoothstep(3, 26, wd) : 0);
+    springs.forEach(w => { const d = Math.hypot(w.x - px, w.z - pz); if(started && d < 9 && !w.near){ w.near = true; toast('💧 약수터예요 · 물 한 모금 마시고 가요'); } else if(d > 18) w.near = false; }); }
   updateRemotes(dt, clock); tickBubble(myBubble, dt); sendPresence(dt);
   const alone = Online.remotes.size === 0; npcs.forEach(n => n.h.root.visible = alone);
   updateCamera(dt);
