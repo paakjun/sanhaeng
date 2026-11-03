@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>산행</title>
+<title>등산의 목적</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
 <style>
@@ -135,6 +135,21 @@
   .support-btn { font-size:18px; }
   #start .start-support { position:absolute; top:14px; right:14px; width:40px; height:40px; padding:0; border-radius:50%; font-size:18px; background:rgba(250,246,236,0.7); box-shadow:0 4px 16px rgba(40,50,35,0.12); z-index:2; }
   @media (max-width: 520px){ #topRight { flex-direction:column; } #topRight .icon { width:40px; height:40px; } }
+  #start h1 { letter-spacing:0.12em !important; padding-left:0.12em !important; white-space:nowrap; font-size:clamp(34px, 10vw, 80px) !important; }
+  @media (min-aspect-ratio: 1/1) { #start h1 { padding-left:0 !important; font-size:clamp(34px, 5vw, 64px) !important; } }
+  #btnRun { position:absolute; left:20px; bottom:24px; width:76px; height:76px; border-radius:50%; border:none; padding:0; cursor:pointer; pointer-events:auto;
+            background:rgba(250,246,236,0.78); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); box-shadow:0 6px 20px rgba(40,50,35,0.18);
+            display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:inherit; color:var(--ink); transition:background .25s, transform .2s; }
+  #btnRun svg { position:absolute; inset:0; width:100%; height:100%; }
+  #btnRun span { font-size:26px; line-height:1; } #btnRun small { font-size:11px; margin-top:2px; }
+  #btnRun.on { background:#e0703a; color:#fff; transform:scale(1.06); }
+  #btnRun.tired #runFill { stroke:#d9483b; }
+  #btnRun.alert { animation:runAlert .5s ease-in-out infinite; box-shadow:0 0 0 4px rgba(224,112,58,0.6), 0 6px 20px rgba(40,50,35,0.18); }
+  @keyframes runAlert { 0%,100% { transform:scale(1); } 50% { transform:scale(1.14); } }
+  #hud.resting #btnRun { opacity:0; pointer-events:none; }
+  #koFade { position:fixed; inset:0; background:#1d1a16; opacity:0; pointer-events:none; transition:opacity 1.1s; display:flex; align-items:center; justify-content:center; }
+  #koFade.show { opacity:0.92; pointer-events:auto; }
+  #koText { color:#f6f0e2; font-family:"Gowun Batang", serif; font-size:18px; text-align:center; padding:0 24px; }
 </style>
 </head>
 <body>
@@ -142,7 +157,7 @@
 
 <div id="hud" class="hidden">
   <div id="card">
-    <div class="title" id="cardTitle">산행</div>
+    <div class="title" id="cardTitle">등산의 목적</div>
     <div class="bar"><div id="barFill"></div></div>
     <div id="stats">해발 -m · 정상까지 -</div>
     <button id="btnTreasure">✦ 보물 <span id="tCount">0/8</span></button>
@@ -165,13 +180,17 @@
     <button data-e="yaho" class="txt" aria-label="야호">야호</button>
   </div>
   <button id="btnAuto"><span class="dot"></span>길 따라 걷기</button>
+  <button id="btnRun" aria-label="달리기">
+    <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="5"/><circle id="runFill" cx="32" cy="32" r="28" fill="none" stroke="#f2c14e" stroke-width="5" stroke-linecap="round" stroke-dasharray="176" stroke-dashoffset="0" transform="rotate(-90 32 32)"/></svg>
+    <span>🏃</span><small>달리기</small>
+  </button>
   <div id="joy" class="hidden"><div id="knob"></div></div>
   <div id="toast"></div>
 </div>
 
 <div id="start">
   <button class="icon support-btn start-support" aria-label="후원하기" title="후원하기">⛰️</button>
-  <h1>산행</h1>
+  <h1>등산의 목적</h1>
   <p id="mtDesc">새소리와 바람 소리를 들으며, 등산로를 따라 천천히 정상까지.</p>
   <div class="mts" id="mts"></div>
   <div class="setup">
@@ -183,6 +202,8 @@
   <button id="btnStart" disabled>숲을 만드는 중…</button>
   <small id="hint"><span id="roomLine"></span><br>이어폰을 끼면 더 좋아요</small>
 </div>
+
+<div id="koFade"><div id="koText"></div></div>
 
 <div id="summit" class="modal hidden">
   <div class="sheet">
@@ -208,8 +229,8 @@
 
 <div id="support" class="modal hidden">
   <div class="sheet">
-    <h2>⛰️ 산행 후원하기</h2>
-    <p style="font-size:14px">산행이 마음에 드셨다면<br>따뜻한 커피 한 잔으로 응원해 주세요.</p>
+    <h2>⛰️ 등산의 목적 후원하기</h2>
+    <p style="font-size:14px">등산의 목적이 마음에 드셨다면<br>따뜻한 커피 한 잔으로 응원해 주세요.</p>
     <img id="supportQr" alt="카카오페이 후원 QR" style="width:min(240px, 62vw); border-radius:14px; margin:6px auto 2px; display:block; box-shadow:0 4px 16px rgba(40,50,35,0.12);">
     <p style="font-size:12.5px;opacity:.75;margin:6px 0 0">카카오톡 › 코드스캔으로 찍어 주세요</p>
     <div class="row">
@@ -221,13 +242,15 @@
 
 <div id="help" class="modal hidden">
   <div class="sheet">
-    <h2>산행 안내</h2>
+    <h2>등산의 목적 · 안내</h2>
     <h3>걷기</h3>
     <ul>
       <li>휴대폰: 가고 싶은 곳을 톡 누르면 그곳까지 걸어가요</li>
       <li>PC: 클릭한 곳으로 걷기, 또는 WASD·방향키 (Shift로 빠르게)</li>
       <li>화면을 드래그하면 둘러보기 · 두 손가락/휠로 거리 조절</li>
       <li>‘길 따라 걷기’를 켜면 알아서 등산로를 따라 올라가요</li>
+      <li>왼쪽 아래 🏃 버튼으로 달리기를 켜고 끌 수 있어요 (PC는 Shift). 오래 달리면 숨이 차요</li>
+      <li>⚠️ 가끔 산사태가 나요. 우르릉 소리가 나면 옆으로 달려 피하세요. 휩쓸리면 지난 쉼터에서 다시 시작해요</li>
       <li>쉼터 벤치 가까이에서 ‘🪑 앉아서 쉬기’를 누르면 앉아서 경치를 볼 수 있어요</li>
       <li>오른쪽 위 문 버튼으로 산에서 나갔다가, 다시 들어오면 있던 자리에서 이어서 걸어요</li>
       <li>걷다 보면 다람쥐·산토끼·고라니·꿩이 튀어나와요. 가까이 가면 놀라서 달아나요</li>
@@ -1156,6 +1179,14 @@ const Sound = {
     g.gain.exponentialRampToValueAtTime(0.0001, t + 1.0);
     s.connect(lp); lp.connect(g); g.connect(this.master); s.start(t, Math.random()*2, 1.1);
   },
+  rumble(sec){
+    const ctx = this.ctx; if(!ctx || !this.on) return;
+    const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = this.white; s.loop = true;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 140; lp.Q.value = 0.7;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 1.2); g.gain.setValueAtTime(0.5, t + sec - 1.5); g.gain.exponentialRampToValueAtTime(0.0001, t + sec + 3);
+    s.connect(lp); lp.connect(g); g.connect(this.master); s.start(t); s.stop(t + sec + 3.2);
+    for(let i=0;i<22;i++){ const tt = t + 2.4 + Math.random()*(sec + 1); this.tap(tt, 0.05 + Math.random()*0.05, this.master); }
+  },
   swoosh(){
     const ctx = this.ctx; if(!ctx || !this.on) return;
     const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = this.white;
@@ -1556,6 +1587,96 @@ function openTreasureBook(){
   $('tbook').classList.remove('hidden');
 }
 
+/* ---------- 달리기 ---------- */
+const Run = { on: false, st: 100 };
+function setRun(v){ Run.on = v && Run.st > 5; $('btnRun').classList.toggle('on', Run.on); }
+let runUiT = 0;
+function updateRunButton(){
+  if(++runUiT % 6) return;
+  $('runFill').style.strokeDashoffset = String(176 * (1 - Run.st/100));
+  $('btnRun').classList.toggle('tired', Run.st < 20);
+}
+
+/* ---------- 산사태 ---------- */
+const Slide = { timer: 75, phase: '', t: 0, rocks: [], shake: 0, safeT: 0, dir: null, dust: null };
+let rockGeoS = null, rockMatS = null;
+let dustT = null;
+function dustTex(){ if(dustT) return dustT; const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+  const g = x.createRadialGradient(32,32,0,32,32,32); g.addColorStop(0,'rgba(255,255,255,0.9)'); g.addColorStop(1,'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0,0,64,64);
+  return (dustT = new THREE.CanvasTexture(c)); }
+function slideRockMesh(r){
+  if(!rockGeoS){ rockGeoS = new THREE.IcosahedronGeometry(1, 1); jitterGeo(rockGeoS, 0.35, 1.4, 5); rockGeoS.computeVertexNormals(); rockMatS = new THREE.MeshStandardMaterial({ color: 0x6f6458, roughness: 1, flatShading: true }); }
+  const m = new THREE.Mesh(rockGeoS, rockMatS); m.scale.setScalar(r); m.castShadow = true; scene.add(m); return m;
+}
+function startLandslide(){
+  // uphill = toward the summit (mountain center)
+  let ux = -px, uz = -pz; const L = Math.hypot(ux, uz) || 1; ux /= L; uz /= L;
+  Slide.dir = { ux, uz, lx: -uz, lz: ux };
+  Slide.phase = 'warn'; Slide.t = 0; Slide.shake = 0.15;
+  toast('⚠️ 우르릉… 산사태예요! 옆으로 달려 피하세요', 3.5);
+  Sound.rumble(4.5);
+  const btn = $('btnRun'); btn.classList.add('alert'); setTimeout(() => btn.classList.remove('alert'), 4000);
+}
+function launchRocks(){
+  const d = Slide.dir, n = 7 + Math.floor(Math.random()*4);
+  for(let i=0;i<n;i++){
+    const lat = (Math.random()*2 - 1)*13, up = 26 + Math.random()*12;
+    const x = px + d.ux*up + d.lx*lat, z = pz + d.uz*up + d.lz*lat, r = 0.95 + Math.random()*0.75;
+    const dust = new THREE.Sprite(new THREE.SpriteMaterial({ map: dustTex(), color: 0xb79a74, transparent: true, opacity: 0, depthWrite: false }));
+    dust.scale.set(r*4.5, r*3, 1); scene.add(dust);
+    Slide.rocks.push({ m: slideRockMesh(r), dust, x, z, r, v: 7.5 + Math.random()*3, delay: Math.random()*1.6, gone: 0, spin: 0 });
+  }
+  Slide.phase = 'fall'; Slide.t = 0; Slide.shake = 0.35;
+}
+function clearSlide(){
+  Slide.rocks.forEach(k => { scene.remove(k.m); scene.remove(k.dust); }); Slide.rocks = []; Slide.phase = ''; Slide.shake = 0;
+}
+function knockedOut(){
+  clearSlide(); setAuto(false); setRun(false); Move.target = null;
+  const fade = $('koFade'); fade.classList.add('show');
+  $('koText').textContent = '앗, 산사태에 휩쓸렸어요…';
+  setTimeout(() => {
+    // wake up at the last rest area passed (or the trailhead)
+    let best = null; benches.forEach(b => { const s = restSpots[b.idx] ? restSpots[b.idx].f*total : 0; if(s < sPlayer - 2 && (!best || s > best.s)) best = { b, s }; });
+    if(best){ const b = best.b; px = b.x - b.ox*1.4; pz = b.z - b.oz*1.4; sPlayer = best.s; facing = b.rot + Math.PI; }
+    else resetToStart();
+    py = height(px, pz); camInit = false; yaw = facing;
+    $('koText').textContent = best ? '쉼터에서 다시 정신을 차렸어요. 조심히 가요' : '등산로 입구에서 다시 정신을 차렸어요';
+    setTimeout(() => fade.classList.remove('show'), 1600);
+    Slide.safeT = 6; Slide.timer = 80 + Math.random()*50;
+  }, 1300);
+}
+function updateLandslide(dt){
+  Slide.shake = Math.max(0, Slide.shake - dt*0.08);
+  Slide.safeT = Math.max(0, Slide.safeT - dt);
+  if(!started || Rest.on || summitShown){ if(Slide.phase && !started) clearSlide(); return; }
+  if(!Slide.phase){
+    Slide.timer -= dt;
+    if(Slide.timer <= 0){
+      const f = sPlayer/total;
+      if(f > 0.08 && f < 0.92 && playerD < 10 && Slide.safeT <= 0) startLandslide();
+      Slide.timer = 70 + Math.random()*60;
+    }
+    return;
+  }
+  Slide.t += dt;
+  if(Slide.phase === 'warn'){ Slide.shake = 0.15 + Slide.t*0.05; if(Slide.t > 2.6) launchRocks(); return; }
+  let alive = 0;
+  Slide.rocks.forEach(k => {
+    if(k.gone > 75){ if(k.m.parent){ scene.remove(k.m); scene.remove(k.dust); } return; }
+    alive++;
+    if(Slide.t < k.delay){ k.m.position.set(k.x, height(k.x, k.z) + k.r*0.6, k.z); return; }
+    let dx = k.x, dz = k.z; const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;   // roll downhill (away from summit)
+    k.v = Math.min(12, k.v + dt*1.5);
+    k.x += dx*k.v*dt; k.z += dz*k.v*dt; k.gone += k.v*dt; k.spin += k.v*dt/k.r;
+    k.m.position.set(k.x, height(k.x, k.z) + k.r*0.75 + Math.abs(Math.sin(k.spin*0.5))*0.25, k.z);
+    k.m.rotation.set(k.spin, Math.atan2(dx, dz), 0, 'YXZ');
+    k.dust.position.set(k.x - dx*k.r*1.4, k.m.position.y + 0.2, k.z - dz*k.r*1.4); k.dust.material.opacity = Math.min(0.55, k.dust.material.opacity + dt);
+    if(Slide.safeT <= 0 && Math.hypot(k.x - px, k.z - pz) < k.r + 0.45){ knockedOut(); }
+  });
+  if(Slide.phase === 'fall' && (alive === 0 || Slide.t > 14)){ clearSlide(); toast('휴, 산사태가 지나갔어요', 2.5); }
+}
+
 /* ---------- 산도깨비 & 관리인 ---------- */
 const Act = { st: null, wh: null, ak: null, cool: 0, target: null, kind: '', stolen: 0 };
 function actionsForPresence(){ const o = {}; if(Act.st) o.st = Act.st; if(Act.wh) o.wh = Act.wh; if(Act.ak) o.ak = Act.ak; return o; }
@@ -1671,7 +1792,8 @@ function updatePlayer(dt, t){
   if(keys.has('KeyA')||keys.has('ArrowLeft')) ix -= 1;
   ix += joy.x; iy += joy.y;
   let il = Math.hypot(ix,iy); if(il > 1){ ix/=il; iy/=il; il = 1; }
-  const run = keys.has('ShiftLeft') || keys.has('ShiftRight');
+  const wantRun = Run.on || keys.has('ShiftLeft') || keys.has('ShiftRight');
+  const run = wantRun && Run.st > 1;
   if(Rest.on){
     if(il > 0.5){ standUp(); }
     else {
@@ -1689,23 +1811,26 @@ function updatePlayer(dt, t){
     Move.target = null;
     const fx = Math.sin(yaw), fz = Math.cos(yaw), rx = -Math.cos(yaw), rz = Math.sin(yaw);
     mx = fx*iy + rx*ix; mz = fz*iy + rz*ix; const L = Math.hypot(mx,mz) || 1; mx/=L; mz/=L;
-    spd = (run ? 6.2 : 3.4) * il;
+    spd = (run ? 6.6 : 3.4) * il;
   } else if(Move.target){
     const dx = Move.target.x - px, dz = Move.target.z - pz, L = Math.hypot(dx, dz);
     Move.t += dt;
     if(L < 0.35 || Move.t > 40){ Move.target = null; }
-    else { mx = dx/L; mz = dz/L; spd = Math.min(3.4, 1.2 + L*1.5); }
+    else { mx = dx/L; mz = dz/L; spd = Math.min(run ? 6.6 : 3.4, 1.2 + L*1.8); }
   } else if(auto){
     Move.target = null;
     const target = playerD > 8 ? pointAt(sPlayer) : pointAt(Math.min(total, sPlayer + 4.5));
     const dx = target.x - px, dz = target.z - pz, L = Math.hypot(dx,dz);
     if(total - sPlayer < 2.2){ setAuto(false); }
-    else if(L > 0.15){ mx = dx/L; mz = dz/L; spd = 2.9; }
+    else if(L > 0.15){ mx = dx/L; mz = dz/L; spd = run ? 6.0 : 2.9; }
   }
   px += mx*spd*dt; pz += mz*spd*dt;
   const r = Math.hypot(px,pz); if(r > 250){ px *= 250/r; pz *= 250/r; }
   if(spd > 0.1) facing += angDiff(Math.atan2(mx,mz), facing) * Math.min(1, dt*9);
   py += (height(px,pz) - py) * Math.min(1, dt*14);
+  if(run && spd > 3.6){ Run.st = Math.max(0, Run.st - dt*11); if(Run.st <= 1 && Run.on){ setRun(false); toast('숨이 차요. 잠깐 걸으며 숨을 골라요', 2.5); } }
+  else Run.st = Math.min(100, Run.st + dt*(spd > 0.1 ? 7 : 14));
+  updateRunButton();
   player.root.position.set(px, py, pz); player.root.rotation.y = facing;
   const before = Math.sin(player.phase);
   animHiker(player, dt, spd, t);
@@ -1746,6 +1871,7 @@ function updateCamera(dt){
   const k = 1 - Math.exp(-dt*7);
   camera.position.x += (cx-camera.position.x)*k; camera.position.y += (cy-camera.position.y)*k; camera.position.z += (cz-camera.position.z)*k;
   camTarget.x += (tx-camTarget.x)*k*1.4; camTarget.y += (ty-camTarget.y)*k*1.4; camTarget.z += (tz-camTarget.z)*k*1.4;
+  if(Slide.shake > 0){ const a = Slide.shake*0.12; camera.position.x += (Math.random()-0.5)*a; camera.position.y += (Math.random()-0.5)*a; }
   camera.lookAt(camTarget);
 }
 
@@ -1861,6 +1987,7 @@ document.querySelectorAll('.support-btn').forEach(b => b.addEventListener('click
 $('btnSupportClose').addEventListener('click', () => $('support').classList.add('hidden'));
 $('support').addEventListener('click', e => { if(e.target === $('support')) $('support').classList.add('hidden'); });
 $('btnAuto').addEventListener('click', () => setAuto(!auto));
+$('btnRun').addEventListener('click', () => setRun(!Run.on));
 $('btnAct').addEventListener('click', doAction);
 $('btnRest').addEventListener('click', () => sitDown(nearBench()));
 $('btnStand').addEventListener('click', standUp);
@@ -1898,7 +2025,7 @@ function frame(now){
   if(started) updatePlayer(dt, clock);
   else { yaw += dt*0.06; animHiker(player, dt, 0, clock); player.root.position.set(px,py,pz); player.root.rotation.y = yaw + Math.PI; }
   updateNPCs(dt, clock);
-  updateTreasures(dt, clock); updateAnimals(dt, clock);
+  updateTreasures(dt, clock); updateAnimals(dt, clock); updateLandslide(dt);
   updateRemotes(dt, clock); tickBubble(myBubble, dt); sendPresence(dt);
   const alone = Online.remotes.size === 0; npcs.forEach(n => n.h.root.visible = alone);
   updateCamera(dt);
@@ -1932,6 +2059,7 @@ function loadMountain(id){
   try { localStorage.setItem('sanhaeng-mt', M.id); } catch(e){}
   seed = M.seed * 7919 + 1;
   resumeOk = false;
+  clearSlide(); Slide.timer = 75;
   clearWorld(); genPath(); buildWorld(); buildTreasures();
   try { tBook = JSON.parse(localStorage.getItem('sanhaeng-treasure-' + M.id) || '{}') || {}; } catch(e){ tBook = {}; }
   tFoundNow = 0; tNewIds.clear(); refreshTreasureHUD();
@@ -1939,7 +2067,7 @@ function loadMountain(id){
   resetToStart();
   renderMountainPicker();
   $('mtDesc').textContent = M.desc;
-  $('cardTitle').textContent = '산행 · ' + M.name;
+  $('cardTitle').textContent = M.name;
   onMountainChanged();
 }
 let mtCounts = {};
@@ -1962,6 +2090,7 @@ function switchMountain(id){
 }
 let resumeOk = false;
 function showStartScreen(reset){
+  clearSlide(); setRun(false);
   if(Rest.on) standUp();
   if(reset){ resetToStart(); resetTreasures(); resumeOk = false; } else resumeOk = true;
   goAway();

@@ -2,7 +2,7 @@
   "name": "sanhaeng",
   "version": "0.1.0",
   "private": true,
-  "description": "산행 — 함께 걷는 힐링 등산 게임",
+  "description": "등산의 목적 — 함께 걷는 힐링 등산 게임",
   "main": "server.js",
   "scripts": { "start": "node server.js" },
   "engines": { "node": ">=18" },

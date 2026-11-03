@@ -1,4 +1,4 @@
-// 산행 — 실시간 멀티플레이 서버
+// 등산의 목적 — 실시간 멀티플레이 서버
 // 게임 페이지(public/)를 제공하고, /ws 웹소켓으로 같은 방(?room=이름) 사람들의 위치를 중계합니다.
 const http = require('http');
 const fs = require('fs');
@@ -98,4 +98,4 @@ setInterval(() => {
   wss.clients.forEach((ws) => { if (!ws.isAlive) return ws.terminate(); ws.isAlive = false; try { ws.ping(); } catch {} });
 }, 25000);
 
-server.listen(PORT, () => console.log(`산행 서버가 열렸어요: http://localhost:${PORT}/?room=maru`));
+server.listen(PORT, () => console.log(`등산의 목적 서버가 열렸어요: http://localhost:${PORT}/?room=maru`));
