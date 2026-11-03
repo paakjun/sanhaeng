@@ -179,10 +179,24 @@
   .mixrow span:first-child { width:96px; flex:none; }
   .mixrow input[type=range] { flex:1; accent-color:#4f6b45; height:28px; }
   .mixrow em { width:30px; font-style:normal; font-size:12px; opacity:.6; text-align:right; }
+  #gearBar { position:absolute; left:22px; bottom:112px; display:flex; flex-direction:column-reverse; flex-wrap:wrap; max-height:calc(100vh - 330px); gap:8px; pointer-events:auto; align-content:flex-start; }
+  #gearBar .gb { width:46px; height:46px; border-radius:50%; border:2px solid rgba(250,246,236,0.85); padding:0; cursor:pointer; overflow:hidden; background:#f3efe2; box-shadow:0 4px 14px rgba(40,50,35,0.18); }
+  #gearBar .gb img { width:100%; height:100%; display:block; }
+  #gearBar .gb.on { border-color:#ffc670; box-shadow:0 0 0 3px rgba(255,198,112,0.6), 0 4px 14px rgba(40,50,35,0.18); }
+  #gearBar .gb.passive { opacity:.7; }
+  #hud.resting #gearBar { opacity:0; pointer-events:none; }
+  canvas#c { filter:saturate(1.12) contrast(1.05); }
+  #vignette { position:fixed; inset:0; pointer-events:none; background:radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 58%, rgba(18,24,16,0.30) 100%); }
+  #binoc { position:fixed; inset:0; pointer-events:none; opacity:0; transition:opacity .4s;
+           background:radial-gradient(circle at 33% 50%, transparent 0 21vmin, rgba(0,0,0,0) 21.2vmin), radial-gradient(circle at 67% 50%, transparent 0 21vmin, rgba(0,0,0,0) 21.2vmin);
+           -webkit-mask: radial-gradient(circle at 36% 50%, transparent 0 24vmin, #000 24.5vmin), radial-gradient(circle at 64% 50%, transparent 0 24vmin, #000 24.5vmin); -webkit-mask-composite: source-in; mask-composite: intersect; background-color:#0c0e0c; }
+  #binoc.show { opacity:0.96; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="vignette"></div>
+<div id="binoc"></div>
 
 <div id="hud" class="hidden">
   <div id="card">
@@ -212,6 +226,7 @@
     <button data-e="yaho" class="txt" aria-label="야호">야호</button>
   </div>
   <button id="btnAuto"><span class="dot"></span>길 따라 걷기</button>
+  <div id="gearBar"></div>
   <button id="btnRun" aria-label="달리기">
     <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="5"/><circle id="runFill" cx="32" cy="32" r="28" fill="none" stroke="#f2c14e" stroke-width="5" stroke-linecap="round" stroke-dasharray="176" stroke-dashoffset="0" transform="rotate(-90 32 32)"/></svg>
     <span>🏃</span><small>달리기</small>
@@ -257,10 +272,20 @@
 
 <div id="tbook" class="modal hidden">
   <div class="sheet">
-    <h2>캠핑 장비 수첩</h2>
+    <h2 id="tbookTitle">장비 수첩</h2>
     <p id="tbookSub" style="font-size:13px;opacity:.75;margin:0">등산로 옆에 누가 캠핑 장비를 흘리고 갔어요</p>
     <div class="tgrid" id="tgrid"></div>
     <div class="row"><button id="btnTbookClose" class="primary">닫기</button></div>
+  </div>
+</div>
+
+<div id="mapModal" class="modal hidden">
+  <div class="sheet">
+    <h2>🗺️ 등산 지도</h2>
+    <p id="mapTitle" style="font-size:13px;opacity:.75;margin:0 0 8px"></p>
+    <canvas id="mapCanvas" width="600" height="600" style="width:100%;border-radius:12px;background:#efe6c8"></canvas>
+    <p style="font-size:12px;opacity:.7;margin:6px 0 0">🔴 나 · 🔵 함께 걷는 사람 · 🚩 입구 · ⛰️ 정상 · 색: 초록 숲길, 회색 바윗길, 황토 능선, 갈색 계단, 파랑 계곡</p>
+    <div class="row"><button id="btnMapClose" class="primary">닫기</button></div>
   </div>
 </div>
 
@@ -287,6 +312,7 @@
       <li>🧗 바윗길의 밧줄 걸린 암벽에 가까이 가면 ‘암벽 오르기’로 올라갈 수 있어요</li>
       <li>⭐ 정상에 오르면 별(정상 · 캠핑 장비 8개 · 암벽 또는 약수)과 배지, 칭호, 등정 인증서를 받아요</li>
       <li>🎧 스피커 버튼을 누르면 새소리·바람·물소리·풀벌레·빗소리·발소리를 따로 조절할 수 있어요</li>
+      <li>🎒 등산객은 캠핑 장비(의자·매트·텐트·보온병·버너·랜턴·카라비너), 🌲 관리인은 관리 장비(지도·무전기·쌍안경·손전등·구급상자·호루라기·묘목·깃발)를 모아요. 왼쪽 아이콘을 눌러 써요</li>
       <li>💧 약수터에서 물을 마시면 달리기 체력이 다시 가득 차요</li>
       <li>⚠️ 가끔 산사태가 나요. 우르릉 소리가 나면 옆으로 달려 피하세요. 휩쓸리면 지난 쉼터에서 다시 시작해요</li>
       <li>쉼터 벤치 가까이에서 ‘🪑 앉아서 쉬기’를 누르면 앉아서 경치를 볼 수 있어요</li>
@@ -548,6 +574,41 @@ function updateTimeOfDay(dt){
   litMats.forEach(e => { if(e.kind === 'basic') e.m.color.copy(e.base).multiplyScalar(lk).lerp(SKY.horW, warm*0.12); else e.m.emissive.copy(e.base).multiplyScalar(lk); });
   if(leaves) leaves.pts.material.opacity = 0.35 + 0.65*dayK;
 }
+let flock = null, flockT = 25, dflies = null;
+function updateScenery(dt){
+  // tint clouds & mist with the light of the hour
+  const dk = TOD.dayK, wm = TOD.warm, cTint = tmpC2.setRGB(1, 1, 1).multiplyScalar(0.28 + 0.72*dk).lerp(tmpC.setRGB(1, 0.72, 0.55), wm*0.55).lerp(tmpC.setRGB(0.6, 0.62, 0.66), rainK*0.6);
+  cloudSprites.forEach(sp => { sp.material.color.copy(cTint); sp.material.opacity = 0.9 - rainK*0.2; });
+  const mistOp = (0.22 + 0.45*wm + 0.25*TOD.night + 0.3*rainK)*(M.extra === 'cloudsea' ? 0.6 : 1);
+  mistLayers.forEach((L, i) => { L.tex.offset.x += dt*L.spd; L.tex.offset.y += dt*L.spd*0.6; L.m.material.opacity = mistOp*(1 - i*0.25); L.m.material.color.copy(cTint); });
+  // a flock of birds now and then
+  flockT -= dt;
+  if(!flock && flockT <= 0 && dk > 0.4 && rainK < 0.3){
+    const g = new THREE.Group(), mat = new THREE.MeshBasicMaterial({ color: 0x2a2e33, side: THREE.DoubleSide, fog: false });
+    const birds = [];
+    for(let i=0;i<9;i++){ const b = new THREE.Group(); [-1, 1].forEach(sd => { const w = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.35), mat); w.position.x = sd*0.7; b.add(w); b.userData['w' + sd] = w; });
+      b.position.set(-Math.abs(i - 4)*2.6, Math.random()*1.5, (i - 4)*2.2); g.add(b); birds.push(b); }
+    const a = Math.random()*TAU, dir = new THREE.Vector3(Math.cos(a + Math.PI), 0, Math.sin(a + Math.PI));
+    g.position.set(px + Math.cos(a)*170, py + 45 + Math.random()*25, pz + Math.sin(a)*170); g.rotation.y = Math.atan2(dir.x, dir.z) - Math.PI/2;
+    scene.add(g); flock = { g, birds, dir, t: 0 };
+  }
+  if(flock){ flock.t += dt; flock.g.position.addScaledVector(flock.dir, dt*11);
+    flock.birds.forEach((b, i) => { const f = Math.sin(clock*9 + i)*0.5; b.userData['w-1'].rotation.z = f; b.userData['w1'].rotation.z = -f; });
+    if(flock.t > 34){ scene.remove(flock.g); flock = null; flockT = 40 + Math.random()*40; } }
+  // 고추잠자리 hovering near the trail on fine days
+  if(!dflies){
+    dflies = []; const body = new THREE.MeshStandardMaterial({ color: 0xd2321e, roughness: 0.5, emissive: 0x3a0804 }), wingM = new THREE.MeshBasicMaterial({ color: 0xe8f0ff, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false });
+    for(let i=0;i<5;i++){ const g = new THREE.Group(); const bd = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.012, 0.32, 6), body); bd.rotation.x = Math.PI/2; g.add(bd);
+      const hd = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), body); hd.position.z = 0.17; g.add(hd); const wings = [];
+      [[-1, 0.06], [1, 0.06], [-1, -0.02], [1, -0.02]].forEach(([sd, z]) => { const w = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.05), wingM); w.position.set(sd*0.1, 0.01, z); w.rotation.x = -Math.PI/2; g.add(w); wings.push(w); });
+      g.visible = false; scene.add(g); dflies.push({ g, wings, a: Math.random()*TAU, r: 2.5 + Math.random()*4, h: 1.2 + Math.random()*1.2, sp: 0.4 + Math.random()*0.5, ph: Math.random()*10 }); }
+  }
+  const showD = started && dk > 0.6 && rainK < 0.2 && TOD.night < 0.2;
+  dflies.forEach(d => { d.g.visible = showD; if(!showD) return;
+    d.a += dt*d.sp*(Math.sin(clock*0.7 + d.ph) > 0.6 ? 3 : 0.6); const hov = Math.sin(clock*1.3 + d.ph);
+    const x = px + Math.cos(d.a)*d.r, z = pz + Math.sin(d.a)*d.r; d.g.position.set(x, height(x, z) + d.h + hov*0.2, z); d.g.rotation.y = -d.a;
+    d.wings.forEach((w, i) => w.rotation.y = Math.sin(clock*60 + i)*0.4); });
+}
 let rainFx = null, rainK = 0;
 function buildRain(){
   const n = isTouch ? 500 : 900, pos = new Float32Array(n*6), sp = [];
@@ -789,7 +850,28 @@ function textTex(lines, w, h, bg, fg, border){
 }
 const fmtDist = m => m >= 1000 ? (m/1000).toFixed(1) + 'km' : Math.round(m/10)*10 + 'm';
 
-const ribbons = [], benches = [], clouds = [], springs = [], streams = [];
+const ribbons = [], benches = [], clouds = [], springs = [], streams = [], cloudSprites = [], mistLayers = [];
+const cloudTexCache = {};
+function cloudTexture(k){
+  if(cloudTexCache[k]) return cloudTexCache[k];
+  const c = document.createElement('canvas'); c.width = 512; c.height = 200; const x = c.getContext('2d');
+  let sd = 97 + k*31; const r2 = () => { sd = (sd*16807) % 2147483647; return (sd - 1)/2147483646; };
+  for(let i=0;i<70;i++){
+    const cx = 60 + r2()*390, cy = 110 - Math.sin((cx - 40)/430*Math.PI)*45 + r2()*30, rad = 26 + r2()*46;
+    const g = x.createRadialGradient(cx, cy - rad*0.2, 0, cx, cy, rad);
+    g.addColorStop(0, 'rgba(255,255,255,0.55)'); g.addColorStop(0.6, 'rgba(250,250,252,0.25)'); g.addColorStop(1, 'rgba(240,242,246,0)');
+    x.fillStyle = g; x.fillRect(cx - rad, cy - rad, rad*2, rad*2);
+  }
+  // soft shaded underside
+  const sh = x.createLinearGradient(0, 80, 0, 200); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(120,130,150,0.35)');
+  x.globalCompositeOperation = 'source-atop'; x.fillStyle = sh; x.fillRect(0, 0, 512, 200);
+  return (cloudTexCache[k] = new THREE.CanvasTexture(c));
+}
+function mistTexture(k){
+  return canvasTex(256, (x, S) => { let sd = 11 + k*7; const r2 = () => { sd = (sd*16807) % 2147483647; return (sd - 1)/2147483646; };
+    for(let i=0;i<46;i++){ const cx = r2()*S, cy = r2()*S, rad = 30 + r2()*70;
+      for(const ox of [-S, 0, S]) for(const oy of [-S, 0, S]){ const g = x.createRadialGradient(cx + ox, cy + oy, 0, cx + ox, cy + oy, rad); g.addColorStop(0, 'rgba(255,255,255,0.22)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(cx + ox - rad, cy + oy - rad, rad*2, rad*2); } } });
+}
 let _rg2 = null; function rockGeo2Global(){ if(!_rg2){ _rg2 = new THREE.IcosahedronGeometry(1, 1); jitterGeo(_rg2, 0.4, 1.3, 33); _rg2.computeVertexNormals(); } return _rg2; }
 let world = null, groundMesh = null;
 let summitPos, summitY;
@@ -1210,7 +1292,7 @@ function buildWorld(){
   }
 
   /* distant ridges: layered, hazier with distance */
-  const ridgeLayers = [[420, 70, 0x6f8b7c, 0.0], [520, 95, 0x8aa0ae, 3.1], [640, 125, 0xaebdc9, 6.7]];
+  const ridgeLayers = [[420, 70, 0x6a8778, 0.0], [510, 92, 0x8299a8, 3.1], [610, 118, 0xa0b2c0, 6.7], [720, 150, 0xbfccd6, 9.3]];
   ridgeLayers.forEach(([R0, H0, colHex, so]) => {
     const SEGS = 220, pos = [], idx = [];
     for(let i=0;i<=SEGS;i++){
@@ -1228,21 +1310,25 @@ function buildWorld(){
     mesh.renderOrder = -0.5; world.add(mesh);
   });
 
-  /* clouds */
-  const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x9aa3aa, fog: false, transparent: true, opacity: 0.92 });
-  const puff = new THREE.SphereGeometry(1, 10, 8);
-  for(let i=0;i<11;i++){
-    const g = new THREE.Group(); const n = 5 + Math.floor(rand()*4);
-    for(let j=0;j<n;j++){ const s = rr(10, 22); const m = new THREE.Mesh(puff, cloudMat); m.scale.set(s*1.5, s*0.6, s); m.position.set(rr(-30,30), rr(-3,5), rr(-14,14)); g.add(m); }
-    const a = rand()*TAU, r = rr(180, 480); g.position.set(Math.cos(a)*r, rr(150, 200), Math.sin(a)*r);
-    world.add(g); clouds.push(g);
+  /* clouds: soft painted billboards */
+  for(let i=0;i<16;i++){
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTexture(i % 4), color: 0xffffff, fog: false, transparent: true, depthWrite: false, opacity: 0.95 }));
+    const a = rand()*TAU, r = rr(260, 620), w = rr(150, 300); sp.scale.set(w, w*rr(0.32, 0.45), 1);
+    sp.position.set(Math.cos(a)*r, rr(110, 210), Math.sin(a)*r); sp.renderOrder = -0.6; world.add(sp); clouds.push(sp); cloudSprites.push(sp);
   }
+  /* 산안개: soft mist lying in the valleys */
+  mistLayers.length = 0;
+  [[-2, 0.0006, 0], [4, -0.0004, 1], [10, 0.0003, 2]].forEach(([dy, spd, k]) => {
+    const tex = mistTexture(k); tex.repeat.set(3, 3);
+    const m = new THREE.Mesh(new THREE.RingGeometry(150, 760, 64, 1), new THREE.MeshBasicMaterial({ map: tex, color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false, fog: true, side: THREE.DoubleSide }));
+    m.rotation.x = -Math.PI/2; m.position.y = Y0 + dy; m.renderOrder = 1; world.add(m); mistLayers.push({ m, tex, spd });
+  });
 }
 
 /* ---------- hikers ---------- */
 const JOBS = {
   hiker:    { name:'등산객',   ic:'🎒', desc:'캠핑 장비를 모으며 정상까지' },
-  ranger:   { name:'관리인',   ic:'🌲', desc:'산과 등산로를 지키는 사람' },
+  ranger:   { name:'관리인',   ic:'🌲', desc:'관리 장비를 모으며 산을 돌봐요 · 지도·무전기·묘목…' },
 };
 const JOB_IDS = Object.keys(JOBS);
 const JOB_ALIAS = { bandit: 'hiker', influencer: 'hiker', dokkaebi: 'hiker' };
@@ -1258,7 +1344,7 @@ function capsuleGeo(r, len, segs){
 function makeHiker(o){
   const job = jobOf(o.job);
   const Mt = (c, e, rough) => new THREE.MeshStandardMaterial({ color: c, roughness: rough == null ? 0.68 : rough, emissive: e || 0x000000 });
-  const root = new THREE.Group(), upper = new THREE.Group(); root.add(upper); upper.position.y = 0.62;
+  const root = new THREE.Group(), upper = new THREE.Group(); root.rotation.order = 'YXZ'; root.add(upper); upper.position.y = 0.62;
   const skin = Mt(0xf7d9bd, 0x1a0f08, 0.6), dark = Mt(0x2a2522, 0, 0.35), accent = Mt(o.jacket);
   const a = (geo, mat, x, y, z, sx, sy, sz, rx, ry, rz, parent) => { const m = new THREE.Mesh(geo, mat); m.position.set(x,y,z); m.scale.set(sx||1, sy||1, sz||1); m.rotation.set(rx||0, ry||0, rz||0); (parent||upper).add(m); return m; };
   const S = (r, w, h) => new THREE.SphereGeometry(r, w || 32, h || 24);
@@ -1350,19 +1436,25 @@ function animHiker(h, dt, spd, t){
     h.legL.rotation.x = -0.6 - Math.max(0, a)*0.7; h.legR.rotation.x = -0.6 - Math.max(0, -a)*0.7;
     h.upper.position.y = 0.62;
   }
+  if(h.lying){
+    h.legL.rotation.x = 0.05; h.legR.rotation.x = 0.05; h.armL.rotation.x = -2.9; h.armR.rotation.x = -2.9; h.armL.rotation.z = -0.5; h.armR.rotation.z = 0.5; h.upper.position.y = 0.62 + Math.sin(t*1.2)*0.01;
+  }
   if(h.sitting){
     h.legL.rotation.x = -1.2; h.legR.rotation.x = -1.2;
     h.armL.rotation.x = -0.45; h.armR.rotation.x = -0.45; h.armL.rotation.z = -0.25; h.armR.rotation.z = 0.25;
     h.upper.position.y = 0.62 + Math.sin(t*1.4)*0.01;
   }
-  if(h.gear) h.gear.forEach(m => { if(m.userData.sw != null && ['cup','clip','lantern','stove'].includes(TREASURES[m.userData.sw].kind)) m.rotation.z = Math.sin(h.phase*2 + m.userData.sw)*0.25*Math.min(1, h.spd/2); });
+  if(h.gear) h.gear.forEach(m => { if(m.userData.sw != null && ['cup','clip','lantern','stove','whistle','binoc','flash'].includes(setFor(h.job)[m.userData.sw].kind)) m.rotation.z = Math.sin(h.phase*2 + m.userData.sw)*0.25*Math.min(1, h.spd/2); });
   h.blinkT -= dt; const bl = h.blinkT < 0.12 ? 0.15 : 1; if(h.blinkT < 0) h.blinkT = 2.5 + Math.random()*3.5;
   if(h.eyes) h.eyes.forEach(e => e.scale.y = 1.15*bl);
   if(h.grabT > 0){ h.grabT -= dt; const k = Math.sin(Math.min(1, (0.7 - h.grabT)/0.7)*Math.PI); h.armR.rotation.x = -1.5*k; h.armR.rotation.z = 0.12 - 0.5*k; }
   if(h.drinkT > 0){ h.drinkT -= dt; const k = Math.min(1, (1.8 - h.drinkT)*4, h.drinkT*4); h.armR.rotation.x = -2.25*k; h.armR.rotation.z = 0.12 - 0.45*k; h.upper.rotation.x = -0.12*k; } else if(h.upper) h.upper.rotation.x = 0;
   if(h.whistleT > 0){ h.whistleT -= dt; h.armR.rotation.x = -2.55; h.armR.rotation.z = -0.55; }
   if(h.root.userData.whistle) h.root.userData.whistle.visible = h.whistleT > 0;
-  if(h.root.userData.dipper) h.root.userData.dipper.visible = h.drinkT > 0;
+  if(h.root.userData.dipper) h.root.userData.dipper.visible = h.drinkT > 0 && !h.teaCup;
+  if(h.drinkT > 0 && h.teaCup && !h.root.userData.teacup){ const c = gearMesh('cup', true); c.scale.setScalar(1.3); c.position.set(0, -0.55, 0.08); c.rotation.x = Math.PI*0.9; h.armR.add(c); h.root.userData.teacup = c; }
+  if(h.root.userData.teacup) h.root.userData.teacup.visible = h.drinkT > 0 && !!h.teaCup;
+  if(!(h.drinkT > 0)) h.teaCup = h.teaCup && h.drinkT > 0;
   if(h.waveT > 0){ h.waveT -= dt; h.armR.rotation.x = -2.75; h.armR.rotation.z = 0.15 + 0.4*Math.sin(t*11); }
   if(h.cheerT > 0){ h.cheerT -= dt; h.armL.rotation.x = -2.9; h.armR.rotation.x = -2.9; h.armL.rotation.z = -0.35; h.armR.rotation.z = 0.35;
     h.upper.position.y += Math.max(0, Math.sin((1.6 - h.cheerT)*8))*0.08; }
@@ -1411,6 +1503,7 @@ const mixK = k => (MIX[k] || 0)/100;
 const Sound = {
   ctx: null, on: true,
   init(){
+    if(this.ctx){ if(this.ctx.state !== 'running') this.ctx.resume().catch(()=>{}); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
     try { this.ctx = new AC(); } catch(e){ return; }
     const ctx = this.ctx, sr = ctx.sampleRate;
@@ -1503,21 +1596,23 @@ const Sound = {
   },
   // 소쩍새: "소쩍… 소쩍다"
   sojjeok(t, dest, vol){
-    const reps = 3 + Math.floor(Math.random()*4), f0 = rr(1060, 1220), third = Math.random() < 0.45;
+    // far away in the valley: muffled, slow, only a few calls
+    const ctx = this.ctx, lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1500; lp.Q.value = 0.3;
+    const far = ctx.createGain(); far.gain.value = 0.5; lp.connect(far); far.connect(dest);
+    const reps = 2 + Math.floor(Math.random()*2), f0 = rr(960, 1080);
     for(let r=0;r<reps;r++){
-      this.note(t, [f0*0.94, f0, f0*1.02, f0*0.98], 0.15, vol, dest, { atk: 0.035, harm: 0.08, vib: 7, vibAmt: 8 });
-      this.note(t + 0.22, [f0*1.08, f0*1.1, f0*1.02, f0*0.9], 0.11, vol*0.9, dest, { atk: 0.02, harm: 0.08 });
-      if(third && r % 2 === 1) this.note(t + 0.4, [f0*1.02, f0*0.98, f0*0.9], 0.09, vol*0.7, dest, { atk: 0.02, harm: 0.06 });
-      t += rr(1.5, 1.9);
+      this.note(t, [f0*0.96, f0, f0*0.99], 0.17, vol, lp, { atk: 0.07, harm: 0.03, vib: 5, vibAmt: 4 });
+      this.note(t + 0.26, [f0*1.05, f0*1.06, f0*0.97], 0.13, vol*0.8, lp, { atk: 0.05, harm: 0.03 });
+      t += rr(2.4, 3.2);
     }
   },
   bird(){
     const ctx = this.ctx; if(!ctx || ctx.state !== 'running') return;
     const nightK = TOD.night, duskK = TOD.warm;
     let t = ctx.currentTime + 0.05; const pan = rr(-0.85, 0.85), dest = this.out(pan), v = rr(0.02, 0.05);
-    const pSojjeok = 0.32 + 0.5*Math.max(nightK, duskK*0.8);
+    const pSojjeok = 0.03 + 0.32*nightK + 0.05*duskK;
     const kind = Math.random();
-    if(kind < pSojjeok){ this.sojjeok(t, dest, v*1.1); return; }
+    if(kind < pSojjeok){ this.sojjeok(t, dest, v*0.55); return; }
     if(nightK > 0.6) return;
     const k2 = Math.random();
     if(k2 < 0.3){            // 박새: 쯔빗 쯔빗 (soft)
@@ -1585,6 +1680,38 @@ const Sound = {
         const st = t + d, vol = k ? 0.012 : 0.05; g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(vol, st + 0.006); g.gain.setTargetAtTime(0, st + 0.02, k ? 0.08 : 0.45);
         o.connect(g); g.connect(this.master); if(this.send) g.connect(this.send); o.start(st); o.stop(st + 2.2); });
     });
+  },
+  crackle(){
+    const ctx = this.ctx; if(!ctx || !this.on) return;
+    const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = this.white;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = 0.8;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); for(let i=0;i<14;i++){ const tt = t + i*0.05; g.gain.linearRampToValueAtTime(Math.random()*0.05, tt + 0.02); }
+    g.gain.linearRampToValueAtTime(0, t + 0.8); s.connect(bp); bp.connect(g); g.connect(this.steps); s.start(t, Math.random()*2, 0.9);
+  },
+  pour(){
+    const ctx = this.ctx; if(!ctx || !this.on) return;
+    const t = ctx.currentTime + 0.2, s = ctx.createBufferSource(); s.buffer = this.white; s.loop = true;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2.2; bp.frequency.setValueAtTime(700, t); bp.frequency.linearRampToValueAtTime(1500, t + 0.9);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.05, t + 0.08); g.gain.setValueAtTime(0.05, t + 0.8); g.gain.linearRampToValueAtTime(0, t + 1.0);
+    const am = ctx.createOscillator(), ag = ctx.createGain(); am.frequency.value = 23; ag.gain.value = 0.02; am.connect(ag); ag.connect(g.gain);
+    s.connect(bp); bp.connect(g); g.connect(this.steps); s.start(t); am.start(t); s.stop(t + 1.1); am.stop(t + 1.1);
+  },
+  sip(){
+    const ctx = this.ctx; if(!ctx || !this.on) return;
+    const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = this.white;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 1.5;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.025, t + 0.12); g.gain.linearRampToValueAtTime(0, t + 0.35);
+    s.connect(bp); bp.connect(g); g.connect(this.steps); s.start(t, Math.random()*3, 0.4);
+    setTimeout(() => { if(this.ctx){ const o = this.ctx.createOscillator(), gg = this.ctx.createGain(), tt = this.ctx.currentTime; o.frequency.setValueAtTime(220, tt); o.frequency.exponentialRampToValueAtTime(140, tt + 0.1);
+      gg.gain.setValueAtTime(0, tt); gg.gain.linearRampToValueAtTime(0.05, tt + 0.01); gg.gain.setTargetAtTime(0, tt + 0.03, 0.03); o.connect(gg); gg.connect(this.steps); o.start(tt); o.stop(tt + 0.2); } }, 500);
+  },
+  boil(sec){
+    const ctx = this.ctx; if(!ctx || !this.on) return;
+    const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = this.pinkBuf || this.white; s.loop = true;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.06, t + 2); g.gain.setValueAtTime(0.06, t + sec - 0.4); g.gain.linearRampToValueAtTime(0, t + sec);
+    s.connect(lp); lp.connect(g); g.connect(this.steps); s.start(t); s.stop(t + sec + 0.1);
+    for(let i=0;i<Math.floor(sec*9);i++) setTimeout(() => { if(this.ctx) this.plip(0.02 + Math.random()*0.025, this.steps, rr(-0.2, 0.2)); }, 900 + Math.random()*(sec - 1)*1000);
   },
   rumble(sec){
     const ctx = this.ctx; if(!ctx || !this.on) return;
@@ -1805,7 +1932,7 @@ function syncPeers(peers){
     const ci = Math.abs(pr.c | 0) % JACKETS.length; if(r.c !== ci){ r.c = ci; r.h.jacketMat.color.setHex(JACKETS[ci]); }
     r.nick = cleanName(pr.n);
     applyGear(r.h, (+pr.gb || 0) & 255);
-    r.h.sitting = !!pr.si; r.cy = clamp(+pr.cy || 0, 0, 8); r.h.climbing = !!pr.cl;
+    r.h.sitting = !!pr.si; r.h.lying = !!pr.ly; r.cy = clamp(+pr.cy || 0, 0, 8); r.h.climbing = !!pr.cl;
     if(r.name) processActions(r, pr, p.peer, false);
     if(!r.nick && p.by && !Online.names[p.by]) need.push(p.by);
     updateRemoteName(r);
@@ -1818,14 +1945,14 @@ function updateRemotes(dt, t){
   Online.remotes.forEach(r => {
     if(Math.hypot(r.tx - r.x, r.tz - r.z) > 30){ r.x = r.tx; r.z = r.tz; }
     r.x += (r.tx - r.x)*k; r.z += (r.tz - r.z)*k; r.f += angDiff(r.tf, r.f)*k;
-    r.h.root.position.set(r.x, height(r.x, r.z) - (r.h.sitting ? 0.1 : 0) + (r.cy || 0), r.z); r.h.root.rotation.y = r.f;
+    r.h.root.position.set(r.x, height(r.x, r.z) - (r.h.sitting ? 0.1 : 0) + (r.h.lying ? 0.38 : 0) + (r.cy || 0), r.z); r.h.root.rotation.set(r.h.lying ? -Math.PI/2 + 0.04 : 0, r.f, 0);
     animHiker(r.h, dt, r.v, t); tickBubble(r.bubble, dt);
   });
 }
 function sendPresence(dt){
   if(!Online.room || !started) return;
   Online.sendT -= dt; if(Online.sendT > 0) return; Online.sendT = 0.1;
-  const o = { x: +px.toFixed(2), z: +pz.toFixed(2), f: +facing.toFixed(2), v: +player.spd.toFixed(1), c: myColor, n: myName, e: Online.emote, et: Online.emoteAt, el: ELEV(py), tr: tFoundNow, mt: M.id, j: myJob, gb: gearMask(), si: Rest.on ? 1 : 0, cy: Climb.on ? +(py - height(px, pz)).toFixed(2) : 0, cl: Climb.on && Climb.phase !== 'top' ? 1 : 0 };
+  const o = { x: +px.toFixed(2), z: +pz.toFixed(2), f: +facing.toFixed(2), v: +player.spd.toFixed(1), c: myColor, n: myName, e: Online.emote, et: Online.emoteAt, el: ELEV(py), tr: tFoundNow, mt: M.id, j: myJob, gb: gearMask(), si: Rest.on && !(Rest.b && Rest.b.lie) ? 1 : 0, ly: Rest.on && Rest.b && Rest.b.lie ? 1 : 0, lt: Gear.light ? 1 : 0, cy: Climb.on ? +(py - height(px, pz)).toFixed(2) : 0, cl: Climb.on && Climb.phase !== 'top' ? 1 : 0 };
   Object.assign(o, actionsForPresence());
   const key = JSON.stringify(o); if(key === Online.sentKey) return;
   Online.sentKey = key; Online.room.presence(o).catch(() => {});
@@ -1953,7 +2080,7 @@ function updateAnimals(dt, t){
 }
 
 /* ---------- treasure hunt (보물찾기) ---------- */
-const TREASURES = [
+const HIKER_ITEMS = [
   { id:'chair',  kind:'chair',   f:0.08, ic:'🪑', name:'헬리낙스 체어원',     desc:'1인용 캠핑 의자. 앉는 순간 다시는 일어나기 싫어지는 마법이 걸려 있어요.', hint:'입구를 지나 얼마 안 가서' },
   { id:'cup',    kind:'cup',     f:0.18, ic:'🥣', name:'스노우삐끗 시에라컵', desc:'티타늄 컵. 라면도 먹고 커피도 마시고, 설거지는 안 해요.', hint:'첫 이정표 조금 전' },
   { id:'clip',   kind:'clip',    f:0.30, ic:'🔗', name:'블랙다이어트 카라비너', desc:'배낭에 뭐든 걸 수 있어요. 다이어트 결심만 빼고요.', hint:'첫 이정표를 지나서' },
@@ -1963,18 +2090,66 @@ const TREASURES = [
   { id:'mat',    kind:'mat',     f:0.76, ic:'🧻', name:'쉬머레스트 발포매트', desc:'돌돌 말린 매트. 펼치면 어디든 내 방이 돼요.', hint:'세 번째 이정표 근처' },
   { id:'tent',   kind:'tent',    f:0.91, ic:'⛺', name:'노스패쓰 1인 텐트',   desc:'혼자만의 작은 집. 정상 근처에서 주웠으니 오늘 밤은 별 보며 잘까요?', hint:'정상 바로 아래' },
 ];
-const T_BY_ID = Object.fromEntries(TREASURES.map(t => [t.id, t]));
+const RANGER_ITEMS = [
+  { id:'flash',   kind:'flash',   f:0.08, ic:'🔦', name:'반짝반짝 순찰 손전등', desc:'밤 순찰의 필수품. 비추는 곳마다 다람쥐가 깜짝 놀라요.', hint:'입구를 지나 얼마 안 가서' },
+  { id:'radio',   kind:'radio',   f:0.18, ic:'📻', name:'치지직 무전기',       desc:'“여기는 관리소, 쉼터까지 몇 m 남았나?” 다음 쉼터·약수터를 알려줘요.', hint:'첫 이정표 조금 전' },
+  { id:'binoc',   kind:'binoc',   f:0.30, ic:'🔭', name:'매의눈 쌍안경',       desc:'멀리 능선 너머까지 살펴요. 가끔 다른 산 관리인과 눈이 마주쳐요.', hint:'첫 이정표를 지나서' },
+  { id:'map',     kind:'map',     f:0.42, ic:'🗺️', name:'꼬깃꼬깃 등산 지도',  desc:'코스와 쉼터, 약수터, 암벽, 그리고 내 위치가 한눈에!', hint:'첫 쉼터를 지나서' },
+  { id:'aid',     kind:'aid',     f:0.53, ic:'🩹', name:'든든 구급상자',       desc:'까진 무릎도 지친 마음도 호— 해줘요.', hint:'중간 이정표 근처' },
+  { id:'whistle', kind:'whistle', f:0.63, ic:'📯', name:'삐익 호루라기',       desc:'불면 메아리가 울려 퍼지고, 숲속 동물 친구가 고개를 내밀어요.', hint:'두 번째 쉼터 조금 전' },
+  { id:'sapling', kind:'sapling', f:0.76, ic:'🌱', name:'아기 소나무 묘목',    desc:'산을 지키는 가장 좋은 방법은 나무를 심는 것. 어디든 심을 수 있어요.', hint:'세 번째 이정표 근처' },
+  { id:'flag',    kind:'flag',    f:0.91, ic:'🚩', name:'산불조심 깃발',       desc:'“꺼진 불도 다시 보자!” 꽂아두면 바람에 펄럭여요.', hint:'정상 바로 아래' },
+];
+const TREASURE_SETS = { hiker: HIKER_ITEMS, ranger: RANGER_ITEMS };
+let TREASURES = HIKER_ITEMS;
+const T_BY_ID = Object.fromEntries(HIKER_ITEMS.concat(RANGER_ITEMS).map(t => [t.id, t]));
+const setFor = job => TREASURE_SETS[job] || HIKER_ITEMS;
 /* 보물 그림 (canvas) */
 const tIconCache = {};
 function treasureIcon(id, size){
   const key = id + size; if(tIconCache[key]) return tIconCache[key];
   const t = T_BY_ID[id], S = size || 160, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'); x.scale(S/160, S/160);
   const steel = () => { const g = x.createLinearGradient(30, 40, 130, 120); g.addColorStop(0, '#f4f5f7'); g.addColorStop(0.45, '#b9bdc4'); g.addColorStop(0.75, '#868b94'); g.addColorStop(1, '#dfe2e7'); return g; };
-  const bg = x.createRadialGradient(80, 70, 10, 80, 80, 80); bg.addColorStop(0, '#f3efe2'); bg.addColorStop(1, '#cfdcc0');
+  const bg = x.createRadialGradient(80, 70, 10, 80, 80, 80); const rg = RANGER_ITEMS.includes(t); bg.addColorStop(0, rg ? '#eef0e2' : '#f3efe2'); bg.addColorStop(1, rg ? '#b9c99a' : '#cfdcc0');
   x.fillStyle = bg; x.beginPath(); x.arc(80, 80, 76, 0, TAU); x.fill();
   x.lineCap = 'round'; x.lineJoin = 'round';
   const rr2 = (X, Y, W, H, r) => { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + W, Y, X + W, Y + H, r); x.arcTo(X + W, Y + H, X, Y + H, r); x.arcTo(X, Y + H, X, Y, r); x.arcTo(X, Y, X + W, Y, r); x.closePath(); };
-  if(t.kind === 'chair'){
+  if(t.kind === 'flash'){
+    x.save(); x.translate(80, 84); x.rotate(-0.6);
+    const lb = x.createLinearGradient(-20, 0, 20, 0); lb.addColorStop(0, '#fff6c8'); lb.addColorStop(1, 'rgba(255,246,200,0)'); x.fillStyle = 'rgba(255,240,170,0.45)'; x.beginPath(); x.moveTo(0, -40); x.lineTo(-30, -90); x.lineTo(30, -90); x.fill();
+    x.fillStyle = '#2b2b2e'; rr2(-12, -18, 24, 70, 6); x.fill(); x.beginPath(); x.moveTo(-18, -40); x.lineTo(18, -40); x.lineTo(12, -18); x.lineTo(-12, -18); x.fill();
+    x.fillStyle = '#fff4c8'; x.beginPath(); x.ellipse(0, -40, 18, 4, 0, 0, TAU); x.fill(); x.fillStyle = '#e2672a'; rr2(-5, 4, 10, 14, 3); x.fill(); x.restore();
+  } else if(t.kind === 'radio'){
+    x.strokeStyle = '#2b2b2e'; x.lineWidth = 5; x.beginPath(); x.moveTo(96, 50); x.lineTo(98, 18); x.stroke();
+    x.fillStyle = '#2f3a2f'; rr2(54, 46, 52, 84, 10); x.fill(); x.fillStyle = '#9fd2a8'; rr2(62, 56, 36, 20, 4); x.fill();
+    x.fillStyle = '#1f281f'; for(let r2_=0;r2_<3;r2_++) for(let c2=0;c2<3;c2++) { x.beginPath(); x.arc(68 + c2*12, 92 + r2_*11, 3, 0, TAU); x.fill(); }
+    x.strokeStyle = '#e2672a'; x.lineWidth = 3; [0, 1].forEach(k => { x.beginPath(); x.arc(110, 40, 10 + k*8, -0.9, 0.2); x.stroke(); });
+  } else if(t.kind === 'binoc'){
+    [[54, 0], [106, 0]].forEach(([cx]) => { x.fillStyle = '#2b2b2e'; rr2(cx - 20, 50, 40, 66, 12); x.fill(); const lg = x.createRadialGradient(cx - 5, 112, 2, cx, 116, 18); lg.addColorStop(0, '#d8eefc'); lg.addColorStop(1, '#3f6f96'); x.fillStyle = lg; x.beginPath(); x.ellipse(cx, 116, 17, 7, 0, 0, TAU); x.fill(); });
+    x.fillStyle = '#4a4a50'; rr2(70, 64, 20, 22, 4); x.fill();
+  } else if(t.kind === 'map'){
+    x.save(); x.translate(80, 80); x.rotate(-0.12);
+    [[-48, '#efe4c4'], [-16, '#e6d9b2'], [16, '#efe4c4']].forEach(([X, col]) => { x.fillStyle = col; x.fillRect(X, -38, 32, 76); });
+    x.strokeStyle = '#7fa36a'; x.lineWidth = 9; x.beginPath(); x.moveTo(-40, 20); x.quadraticCurveTo(-10, -30, 20, 0); x.quadraticCurveTo(36, 14, 44, -20); x.stroke();
+    x.strokeStyle = '#d8322a'; x.lineWidth = 2.5; x.setLineDash([4, 4]); x.beginPath(); x.moveTo(-40, 30); x.quadraticCurveTo(0, 10, 30, -24); x.stroke(); x.setLineDash([]);
+    x.fillStyle = '#d8322a'; x.beginPath(); x.moveTo(30, -34); x.lineTo(36, -24); x.lineTo(24, -24); x.fill(); x.restore();
+  } else if(t.kind === 'aid'){
+    x.fillStyle = '#f4f1ea'; rr2(36, 50, 88, 66, 10); x.fill(); x.strokeStyle = '#c9c3b4'; x.lineWidth = 2; x.stroke();
+    x.fillStyle = '#d8322a'; rr2(70, 62, 20, 42, 3); x.fill(); rr2(59, 73, 42, 20, 3); x.fill();
+    x.fillStyle = '#8c8676'; rr2(66, 40, 28, 12, 5); x.fill();
+  } else if(t.kind === 'whistle'){
+    x.fillStyle = '#e2672a'; rr2(44, 66, 66, 34, 16); x.fill(); x.fillStyle = '#c45620'; x.beginPath(); x.arc(92, 83, 10, 0, TAU); x.fill(); x.fillStyle = '#e2672a'; rr2(100, 70, 22, 14, 4); x.fill();
+    x.strokeStyle = '#b8bcc4'; x.lineWidth = 4; x.beginPath(); x.arc(40, 70, 10, 0, TAU); x.stroke(); x.strokeStyle = '#3f6b4a'; x.lineWidth = 3; x.beginPath(); x.moveTo(32, 64); x.quadraticCurveTo(20, 30, 50, 22); x.stroke();
+    x.strokeStyle = 'rgba(80,80,80,0.5)'; x.lineWidth = 2.5; [0, 1, 2].forEach(k => { x.beginPath(); x.arc(122, 76, 12 + k*7, -0.6, 0.6); x.stroke(); });
+  } else if(t.kind === 'sapling'){
+    x.fillStyle = '#9b5b34'; x.beginPath(); x.moveTo(52, 100); x.lineTo(108, 100); x.lineTo(100, 134); x.lineTo(60, 134); x.fill(); x.fillStyle = '#7a4527'; x.fillRect(50, 96, 60, 8);
+    x.strokeStyle = '#6b4a2c'; x.lineWidth = 4; x.beginPath(); x.moveTo(80, 98); x.lineTo(80, 50); x.stroke();
+    x.fillStyle = '#3f7a3e'; [[80, 34, 22], [80, 54, 28], [80, 74, 32]].forEach(([cx, cy, w]) => { x.beginPath(); x.moveTo(cx, cy - 18); x.lineTo(cx + w, cy + 14); x.lineTo(cx - w, cy + 14); x.fill(); });
+  } else if(t.kind === 'flag'){
+    x.strokeStyle = '#8c8c8c'; x.lineWidth = 5; x.beginPath(); x.moveTo(46, 30); x.lineTo(46, 136); x.stroke();
+    x.fillStyle = '#d8322a'; x.beginPath(); x.moveTo(48, 32); x.quadraticCurveTo(80, 22, 126, 36); x.lineTo(126, 82); x.quadraticCurveTo(80, 70, 48, 80); x.fill();
+    x.fillStyle = '#fff'; x.font = '700 15px "Gowun Dodum", sans-serif'; x.textAlign = 'center'; x.fillText('산불조심', 87, 62);
+  } else if(t.kind === 'chair'){
     x.strokeStyle = '#2b2b2e'; x.lineWidth = 5;
     x.beginPath(); x.moveTo(46, 130); x.lineTo(100, 82); x.moveTo(114, 130); x.lineTo(60, 82); x.moveTo(52, 132); x.lineTo(40, 40); x.moveTo(108, 132); x.lineTo(120, 40); x.stroke();
     x.fillStyle = '#3f6b4a'; x.beginPath(); x.moveTo(42, 46); x.quadraticCurveTo(80, 56, 118, 46); x.lineTo(112, 96); x.quadraticCurveTo(80, 112, 48, 96); x.closePath(); x.fill();
@@ -2030,7 +2205,15 @@ function gearMesh(kind, packed){
   const add = (geo, mat, x, y, z, rx, ry, rz, sx, sy, sz) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx || 0, ry || 0, rz || 0); m.scale.set(sx || 1, sy || 1, sz || 1); m.castShadow = true; g.add(m); return m; };
   const STEEL = M3(0xc9ccd3, { metalness: 0.5, roughness: 0.3, emissive: 0x1a1b1e }), BLACK = M3(0x2b2b2e);
   const cyl = (r, h, n) => new THREE.CylinderGeometry(r, r, h, n || 16);
-  if(kind === 'chair'){
+  if(kind === 'flash'){ add(cyl(0.035, 0.22), BLACK, 0, 0, 0); add(new THREE.CylinderGeometry(0.055, 0.04, 0.07, 16), BLACK, 0, 0.13, 0); add(cyl(0.05, 0.005), M3(0xfff4c8, { emissive: 0xffe9a0 }), 0, 0.166, 0); }
+  else if(kind === 'radio'){ add(new THREE.BoxGeometry(0.1, 0.18, 0.05), M3(0x2f3a2f), 0, 0, 0); add(cyl(0.008, 0.16, 6), BLACK, 0.03, 0.17, 0); add(new THREE.BoxGeometry(0.07, 0.05, 0.01), M3(0x9fd2a8, { emissive: 0x2a4a30 }), 0, 0.04, 0.03); }
+  else if(kind === 'binoc'){ [-0.045, 0.045].forEach(x => { add(cyl(0.035, 0.13), BLACK, x, 0, 0, Math.PI/2); add(cyl(0.028, 0.005), M3(0x6fa6c8, { metalness: 0.4, roughness: 0.1 }), x, 0, 0.068, Math.PI/2); }); add(new THREE.BoxGeometry(0.05, 0.03, 0.06), BLACK, 0, 0, 0); }
+  else if(kind === 'map'){ add(new THREE.BoxGeometry(0.2, 0.012, 0.14), M3(0xeadfb8), 0, 0, 0); add(new THREE.BoxGeometry(0.12, 0.014, 0.07), M3(0x7fa36a), -0.02, 0.001, 0.01); }
+  else if(kind === 'aid'){ add(new THREE.BoxGeometry(0.22, 0.13, 0.09), M3(0xf4f1ea), 0, 0, 0); add(new THREE.BoxGeometry(0.1, 0.03, 0.092), M3(0xd8322a), 0, 0, 0.001); add(new THREE.BoxGeometry(0.03, 0.1, 0.092), M3(0xd8322a), 0, 0, 0.001); }
+  else if(kind === 'whistle'){ add(capsuleGeo(0.025, 0.06, 12), M3(0xe2672a), 0, 0, 0, 0, 0, Math.PI/2); add(new THREE.TorusGeometry(0.02, 0.005, 6, 12), STEEL, -0.06, 0, 0); }
+  else if(kind === 'sapling'){ add(new THREE.CylinderGeometry(0.05, 0.04, 0.07, 14), M3(0x9b5b34), 0, 0, 0); add(cyl(0.006, 0.1, 6), M3(0x6b4a2c), 0, 0.07, 0); add(new THREE.ConeGeometry(0.05, 0.12, 8), M3(0x3f7a3e), 0, 0.15, 0); }
+  else if(kind === 'flag'){ add(cyl(0.008, 0.38, 6), M3(0xd8d8d8), 0, 0.12, 0); const fl = add(new THREE.PlaneGeometry(0.16, 0.1), M3(0xd8322a, { side: THREE.DoubleSide }), 0.08, 0.26, 0); fl.userData.flag = true; }
+  else if(kind === 'chair'){
     if(packed){ add(cyl(0.07, 0.34), M3(0x3f6b4a), 0, 0, 0); add(cyl(0.072, 0.03), BLACK, 0, 0.16, 0); }
     else { [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b]) => add(cyl(0.015, 0.5, 6), BLACK, a*0.17, 0.22, b*0.15, b*0.35, 0, -a*0.25));
       add(new THREE.BoxGeometry(0.42, 0.03, 0.34), M3(0x3f6b4a), 0, 0.3, 0.02, -0.15); add(new THREE.BoxGeometry(0.42, 0.34, 0.03), M3(0x3f6b4a), 0, 0.5, -0.17, -0.25); }
@@ -2056,8 +2239,19 @@ function gearMesh(kind, packed){
   return g;
 }
 let tBook = {};
+function bookKey(){ return 'sanhaeng-treasure-' + M.id + (myJob === 'ranger' ? '-ranger' : ''); }
+function loadBook(){ try { tBook = JSON.parse(localStorage.getItem(bookKey()) || '{}') || {}; } catch(e){ tBook = {}; } }
+function switchItemSet(job){
+  const want = setFor(job); if(want === TREASURES) return;
+  TREASURES = want;
+  tItems.forEach(it => { if(it.g.parent) it.g.parent.remove(it.g); if(it.sp.parent) it.sp.parent.remove(it.sp); }); tItems.length = 0;
+  if(world){ buildTreasures(); } loadBook(); tFoundNow = 0; tNewIds.clear(); refreshTreasureHUD();
+  if(player) applyGear(player, 0);
+  const bar = document.getElementById('gearBar'); if(bar) bar.dataset.k = '';
+  document.getElementById('btnTreasure').firstChild.textContent = job === 'ranger' ? '🧰 장비 ' : '🏕️ 장비 ';
+}
 const tItems = []; let tFoundNow = 0, tNewIds = new Set();
-function treasureMesh(id){ const g = gearMesh(T_BY_ID[id].kind, false); if(['cup','clip','lantern','bottle','stove','mat'].includes(T_BY_ID[id].kind)) g.scale.setScalar(2.3); return g; }
+function treasureMesh(id){ const g = gearMesh(T_BY_ID[id].kind, false); if(!['chair','tent'].includes(T_BY_ID[id].kind)) g.scale.setScalar(2.3); return g; }
 let sparkleTex;
 function buildTreasures(){
   sparkleTex = glowTex();
@@ -2074,6 +2268,14 @@ function buildTreasures(){
 const GEAR_SLOTS = {
   tent:    [0, 0.05, -0.36, 0, 0, 0],
   mat:     [0, 0.74, -0.33, 0, 0, 0],
+  flash:   [0.29, 0.3, -0.28, 0, 0, 0],
+  radio:   [-0.29, 0.34, -0.28, 0, 0, 0],
+  binoc:   [0, 0.18, -0.45, 0, 0, 0],
+  map:     [0, 0.6, -0.42, 0.3, 0, 0],
+  aid:     [0, 0.02, -0.36, 0, 0, 0],
+  whistle: [0.13, 0.46, -0.43, 0, 0, 0],
+  sapling: [-0.14, 0.62, -0.32, 0, 0, 0],
+  flag:    [0.2, 0.62, -0.34, 0, 0, 0.15],
   chair:   [0.29, 0.36, -0.3, 0, 0, 0],
   bottle:  [-0.29, 0.2, -0.3, 0, 0, 0],
   cup:     [0.1, 0.2, -0.47, 1.2, 0, 0],
@@ -2086,10 +2288,10 @@ function applyGear(h, mask){
   if(!h) return;
   if(h.gearMask === mask) return; h.gearMask = mask;
   if(h.gear) h.gear.forEach(o => h.upper.remove(o)); h.gear = [];
-  TREASURES.forEach((t, i) => { if(!(mask & (1 << i))) return; const q = GEAR_SLOTS[t.kind], m = gearMesh(t.kind, true);
+  setFor(h.job).forEach((t, i) => { if(!(mask & (1 << i))) return; const q = GEAR_SLOTS[t.kind], m = gearMesh(t.kind, true);
     m.position.set(q[0], q[1], q[2]); m.rotation.set(q[3], q[4], q[5]); m.userData.sw = i; h.upper.add(m); h.gear.push(m); });
 }
-function resetTreasures(){ setTimeout(() => applyGear(player, 0), 0); runStats = { climbed: false, drank: false }; Act.stolen = 0; tFoundNow = 0; tNewIds.clear(); tItems.forEach(it => { it.found = false; it.hinted = false; it.anim = 0; it.g.visible = true; it.g.scale.set(1,1,1); it.g.position.y = it.y; }); refreshTreasureHUD(); }
+function resetTreasures(){ setTimeout(() => applyGear(player, 0), 0); Gear.tea = 3; runStats = { climbed: false, drank: false }; Act.stolen = 0; tFoundNow = 0; tNewIds.clear(); tItems.forEach(it => { it.found = false; it.hinted = false; it.anim = 0; it.g.visible = true; it.g.scale.set(1,1,1); it.g.position.y = it.y; }); refreshTreasureHUD(); }
 function refreshTreasureHUD(){ $('tCount').textContent = tFoundNow + '/' + TREASURES.length; }
 function updateTreasures(dt, t){
   tItems.forEach((it, i) => {
@@ -2114,7 +2316,7 @@ function updateTreasures(dt, t){
 function collectTreasure(it){
   it.found = true; it.anim = 1.2; tFoundNow++;
   const again = !!tBook[it.t.id];
-  if(!again){ tBook[it.t.id] = Date.now(); tNewIds.add(it.t.id); try { localStorage.setItem('sanhaeng-treasure-' + M.id, JSON.stringify(tBook)); } catch(e){} }
+  if(!again){ tBook[it.t.id] = Date.now(); tNewIds.add(it.t.id); try { localStorage.setItem(bookKey(), JSON.stringify(tBook)); } catch(e){} }
   refreshTreasureHUD();
   const b = $('btnTreasure'); b.classList.add('pop'); setTimeout(() => b.classList.remove('pop'), 900);
   showLoot(it.t, again); applyGear(player, gearMask());
@@ -2129,6 +2331,7 @@ function showLoot(t, again){
   clearTimeout(lootT); lootT = setTimeout(() => el.classList.remove('show'), 3200);
 }
 function openTreasureBook(){
+  $('tbookTitle').textContent = myJob === 'ranger' ? '관리 장비 수첩' : '캠핑 장비 수첩';
   const grid = $('tgrid'); grid.textContent = '';
   const n = TREASURES.filter(t => tBook[t.id]).length;
   $('tbookSub').textContent = M.name + ' 수첩 ' + n + '/' + TREASURES.length + ' · 이번 산행에서 ' + tFoundNow + '개';
@@ -2204,6 +2407,181 @@ function updateBurst(dt){
   if(!burst) return; burst.t += dt; const p = burst.pts.geometry.attributes.position;
   for(let i=0;i<burst.vel.length;i++){ const v = burst.vel[i]; v[1] -= 6*dt; v[0] *= 0.985; v[2] *= 0.985; p.array[i*3] += v[0]*dt; p.array[i*3+1] += Math.max(v[1], -1.5)*dt; p.array[i*3+2] += v[2]*dt; }
   p.needsUpdate = true; if(burst.t > 7){ scene.remove(burst.pts); burst = null; }
+}
+
+/* ---------- 캠핑 장비 사용 ---------- */
+const Gear = { tea: 3, light: false, lamp: null, busy: false };
+const GEAR_USE = {
+  chair:   { label: '의자 펴기',      fn: () => useChair() },
+  mat:     { label: '누워서 하늘 보기', fn: () => useMat() },
+  tent:    { label: '텐트에서 쉬기',   fn: () => useTent() },
+  bottle:  { label: '따뜻한 차 마시기', fn: () => useTea() },
+  stove:   { label: '물 끓이기',      fn: () => useStove() },
+  lantern: { label: '랜턴 켜기/끄기',  fn: () => toggleLantern() },
+  clip:    { label: '카라비너 (암벽에서 자동)', fn: () => toast('🔗 카라비너는 암벽을 오를 때 자동으로 걸어요 · 더 빠르고 안전하게!', 3) },
+  flash:   { label: '손전등 켜기/끄기', fn: () => toggleFlash() },
+  radio:   { label: '무전하기',        fn: () => useRadio() },
+  binoc:   { label: '쌍안경으로 보기',  fn: () => toggleBinoc() },
+  map:     { label: '지도 펼치기',      fn: () => openMap() },
+  aid:     { label: '응급처치',        fn: () => useAid() },
+  whistle: { label: '호루라기 불기',    fn: () => useWhistle() },
+  sapling: { label: '나무 심기',       fn: () => plantSapling() },
+  flag:    { label: '깃발 꽂기',       fn: () => plantFlag() },
+};
+const hasGear = kind => { const i = TREASURES.findIndex(t => t.kind === kind); return i >= 0 && (gearMask() & (1 << i)); };
+function frontSpot(dist){ const f = facing, x = px + Math.sin(f)*dist, z = pz + Math.cos(f)*dist; return { x, z, y: height(x, z), f }; }
+function canUseGear(){ return started && !Rest.on && !Climb.on && !Gear.busy && !summitShown; }
+function useChair(){
+  if(!canUseGear()) return;
+  const rot = yaw, ox = Math.sin(rot), oz = Math.cos(rot), y = height(px, pz);
+  const ch = gearMesh('chair', false); ch.position.set(px, y, pz); ch.rotation.y = rot; ch.scale.setScalar(2.2); scene.add(ch);
+  sitDown({ x: px + ox*0.05, z: pz + oz*0.05, y: y + 0.05, ox, oz, rot, single: true, temp: ch, msg: '🪑 의자를 펴고 앉았어요 · 경치를 천천히 바라봐요' });
+}
+function useMat(){
+  if(!canUseGear()) return;
+  const rot = yaw, ox = Math.sin(rot), oz = Math.cos(rot), y = height(px, pz);
+  const g = new THREE.Group(); const mt = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.05, 2.0), new THREE.MeshStandardMaterial({ color: 0xe8c547, roughness: 0.8 }));
+  mt.position.y = 0.03; mt.receiveShadow = true; g.add(mt); g.position.set(px, y, pz); g.rotation.y = rot; scene.add(g);
+  sitDown({ x: px, z: pz, y: y + 0.06, ox, oz, rot, single: true, lie: true, temp: g,
+    msg: TOD.night > 0.4 ? '🌌 매트에 누워 별을 봐요 · 풀벌레 소리가 들려요' : '☁️ 매트에 누워 하늘을 봐요 · 구름이 천천히 흘러가요' });
+}
+function useTea(){
+  if(!canUseGear()) return;
+  if(Gear.tea <= 0){ toast('🧉 보온병이 비었어요 · 🔥 버너로 물을 끓여 채워요', 3); return; }
+  Gear.tea--; setAuto(false); Move.target = null;
+  player.drinkT = 2.2; player.teaCup = !!hasGear('cup'); Run.st = 100; updateRunButton();
+  Sound.pour(); setTimeout(() => Sound.sip(), 1200);
+  steamAt(player, 2.2);
+  toast('☕ 따뜻한 보리차 한 잔' + (player.teaCup ? ' (시에라컵에 따라서)' : '') + ' · 몸이 사르르 녹아요 (남은 차 ' + Gear.tea + '잔)', 3.5);
+}
+function useStove(){
+  if(!canUseGear()) return;
+  Gear.busy = true; setAuto(false); Move.target = null;
+  const sp = frontSpot(1.1), st = gearMesh('stove', false); st.scale.setScalar(2.4); st.position.set(sp.x, sp.y, sp.z); scene.add(st);
+  const pot = new THREE.Mesh(latheSmooth([[0.001,0],[0.14,0],[0.15,0.02],[0.15,0.16]], 24, 10), new THREE.MeshStandardMaterial({ color: 0xc9ccd3, metalness: 0.5, roughness: 0.3, side: THREE.DoubleSide }));
+  pot.position.set(sp.x, sp.y + 0.36, sp.z); scene.add(pot);
+  const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), color: 0x6fb2ff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+  flame.scale.set(0.35, 0.22, 1); flame.position.set(sp.x, sp.y + 0.33, sp.z); scene.add(flame);
+  toast('🔥 보글보글 물을 끓여요… (국립공원에선 원래 취사 금지! 여긴 게임이니까 물만 살짝)', 4);
+  Sound.boil(4.5);
+  const steam = steamAt({ root: pot }, 4.5, 0.3);
+  setTimeout(() => { [st, pot, flame].forEach(o => scene.remove(o)); Gear.busy = false; Gear.tea = 3; toast('🧉 보온병을 따뜻한 물로 가득 채웠어요 (3잔)', 3); Sound.chime(); }, 4800);
+}
+function useTent(){
+  if(!canUseGear()) return;
+  Gear.busy = true; setAuto(false); Move.target = null;
+  const sp = frontSpot(2.4), tent = gearMesh('tent', false); tent.scale.setScalar(2.6); tent.position.set(sp.x, sp.y, sp.z); tent.rotation.y = sp.f + Math.PI; scene.add(tent);
+  const sleepToDawn = TOD.mode !== 'sunrise' && (TOD.night > 0.3 || TOD.altDeg < -2 || TOD.altDeg > -2 && sunTimes(new Date()).set && new Date() > sunTimes(new Date()).set);
+  toast('⛺ 텐트를 쳤어요 · 잠깐 들어가 쉬어요', 2.2);
+  setTimeout(() => {
+    const fade = $('koFade'); $('koText').textContent = sleepToDawn ? '⛺ 텐트 안 · 빗소리 같은 바람 소리에 스르르 잠들어요… 💤' : '⛺ 텐트 안에서 잠깐 눈을 붙여요… 💤'; fade.classList.add('show');
+    setTimeout(() => {
+      Run.st = 100; updateRunButton();
+      if(sleepToDawn){ setSunriseMode(true); TOD.vt = 30; $('koText').textContent = '🌅 텐트 문을 여니 동쪽 하늘이 밝아와요'; }
+      else $('koText').textContent = '개운해요! 다시 걸어볼까요';
+      setTimeout(() => { fade.classList.remove('show'); scene.remove(tent); Gear.busy = false; }, 1800);
+    }, 2600);
+  }, 1500);
+}
+function toggleLantern(){
+  if(!started) return;
+  Gear.light = !Gear.light;
+  if(!Gear.lamp){ Gear.lamp = new THREE.PointLight(0xffc670, 0, 16, 1.6); scene.add(Gear.lamp); }
+  toast(Gear.light ? '🏮 랜턴을 켰어요 · 발밑이 따뜻하게 밝아요' : '🏮 랜턴을 껐어요', 2.2);
+  Online.sendT = 0;
+}
+function updateLantern(dt){
+  if(!Gear.lamp) return;
+  const target = Gear.light ? 1.6 + Math.sin(clock*7)*0.06 + Math.sin(clock*13)*0.04 : 0;
+  Gear.lamp.intensity += (target - Gear.lamp.intensity)*Math.min(1, dt*6);
+  Gear.lamp.position.set(px + Math.sin(facing)*0.3, py + 1.5, pz + Math.cos(facing)*0.3);
+}
+let steamTex = null;
+function steamAt(obj, sec, y0){
+  if(!steamTex) steamTex = glowTex();
+  const list = [];
+  for(let i=0;i<6;i++){ const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: steamTex, color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })); sp.scale.setScalar(0.25); scene.add(sp); list.push({ sp, t: -i*0.35 }); }
+  steams.push({ obj, list, life: sec, y0: y0 == null ? 1.75 : y0 });
+}
+const steams = [];
+function updateSteam(dt){
+  for(let s2 = steams.length - 1; s2 >= 0; s2--){
+    const S2 = steams[s2]; S2.life -= dt; const base = S2.obj.root ? S2.obj.root.position : S2.obj.position;
+    S2.list.forEach(q => { q.t += dt; if(q.t > 1.6 && S2.life > 0) q.t = 0; const k = Math.max(0, q.t)/1.6;
+      q.sp.position.set(base.x + Math.sin(q.t*3 + q.t)*0.08 + (S2.obj.root ? Math.sin(facing)*0.35 : 0), base.y + S2.y0 + k*0.8, base.z + (S2.obj.root ? Math.cos(facing)*0.35 : 0));
+      q.sp.scale.setScalar(0.2 + k*0.5); q.sp.material.opacity = q.t < 0 ? 0 : 0.35*(1 - k); });
+    if(S2.life < -1.6){ S2.list.forEach(q => scene.remove(q.sp)); steams.splice(s2, 1); }
+  }
+}
+function toggleFlash(){
+  if(!started) return; Gear.flash = !Gear.flash;
+  if(!Gear.spot){ Gear.spot = new THREE.SpotLight(0xfff1c8, 0, 32, 0.42, 0.5, 1.2); scene.add(Gear.spot); scene.add(Gear.spot.target); }
+  toast(Gear.flash ? '🔦 손전등을 켰어요' : '🔦 손전등을 껐어요', 2); Gear.barKey = '';
+}
+function useRadio(){
+  Sound.crackle();
+  const nexts = []; const ahead = (s2) => s2 - sPlayer;
+  restSpots.forEach((r, i) => { const d = ahead(r.f*total); if(d > 3) nexts.push(['🪑 쉼터', d]); });
+  springSpots.forEach(w => { const d = ahead(w.f*total); if(d > 3) nexts.push(['💧 약수터', d]); });
+  climbSpots.forEach(c => { const d = ahead(c.s); if(d > 3) nexts.push(['🧗 암벽', d]); });
+  nexts.sort((a, b) => a[1] - b[1]);
+  const parts = nexts.slice(0, 2).map(q => q[0] + ' ' + fmtDist(q[1]*METERS));
+  setTimeout(() => toast('📻 “치지직… 여기는 관리소. ' + (parts.length ? '다음은 ' + parts.join(', ') + ' 앞이다. 오버.”' : M.peak + '까지 ' + fmtDist((total - sPlayer)*METERS) + ' 남았다. 오버.”'), 5), 500);
+}
+function toggleBinoc(){
+  if(!started) return; Gear.zoom = !Gear.zoom; $('binoc').classList.toggle('show', Gear.zoom);
+  if(Gear.zoom){ setAuto(false); Move.target = null; toast('🔭 화면을 끌어서 둘러봐요 · 다시 누르면 내려놓아요', 3); }
+  camInit = false;
+}
+function useAid(){ Run.st = 100; updateRunButton(); player.cheerT = 1.2; Sound.chime(); toast('🩹 호— 응급처치 완료! 컨디션이 돌아왔어요', 3); }
+function useWhistle(){ Sound.whistle(); player.whistleT = 1.2; animalTimer = Math.min(animalTimer, 1.5); setTimeout(() => toast('📯 삐익— 메아리가 골짜기를 돌아와요 · 동물 친구가 다가와요', 3), 600); }
+function plantAt(mesh, msg){
+  if(!canUseGear()) return; const sp = frontSpot(1.6); mesh.position.set(sp.x, sp.y, sp.z); mesh.rotation.y = sp.f; world.add(mesh); player.grabT = 0.7; toast(msg, 3); Sound.footstep();
+}
+let planted = 0;
+function plantSapling(){
+  const g = new THREE.Group(); const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.8, 7), new THREE.MeshStandardMaterial({ color: 0x6b4a2c })); tr.position.y = 0.4; g.add(tr);
+  [[0.9, 0.55, 0.6], [1.25, 0.45, 0.4], [1.55, 0.32, 0.3]].forEach(([y, r, h]) => { const c = new THREE.Mesh(new THREE.ConeGeometry(r, h, 9), new THREE.MeshStandardMaterial({ color: 0x3f7a3e, roughness: 0.9 })); c.position.y = y; c.castShadow = true; g.add(c); });
+  planted++; plantAt(g, '🌱 아기 소나무를 심었어요 · 오늘 ' + planted + '그루');
+}
+function plantFlag(){
+  const g = gearMesh('flag', false); g.scale.setScalar(4); flags2.push(g); plantAt(g, '🚩 산불조심 깃발을 꽂았어요 · 꺼진 불도 다시 보자!');
+}
+const flags2 = [];
+function updateRangerFx(dt){
+  if(Gear.spot){ const on = Gear.flash ? 2.2 : 0; Gear.spot.intensity += (on - Gear.spot.intensity)*Math.min(1, dt*8);
+    Gear.spot.position.set(px, py + 1.6, pz); Gear.spot.target.position.set(px + Math.sin(facing)*10, py - 0.5, pz + Math.cos(facing)*10); Gear.spot.target.updateMatrixWorld(); }
+  flags2.forEach(g => g.traverse(o => { if(o.userData.flag) o.rotation.y = Math.sin(clock*4 + o.id)*0.35*U.uWind.value; }));
+}
+function openMap(){
+  const c = $('mapCanvas'), x = c.getContext('2d'), W = c.width, H = c.height; x.clearRect(0, 0, W, H);
+  x.fillStyle = '#efe6c8'; x.fillRect(0, 0, W, H);
+  let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9; path.forEach(q => { mnx = Math.min(mnx, q.x); mxx = Math.max(mxx, q.x); mnz = Math.min(mnz, q.z); mxz = Math.max(mxz, q.z); });
+  const sc = Math.min((W - 60)/(mxx - mnx), (H - 60)/(mxz - mnz)), X = v => 30 + (v - mnx)*sc, Z = v => 30 + (v - mnz)*sc;
+  // contour-ish rings
+  x.strokeStyle = 'rgba(120,140,90,0.25)'; x.lineWidth = 1; for(let r2_=20;r2_<240;r2_+=22){ x.beginPath(); x.arc(X(0), Z(0), r2_*sc, 0, TAU); x.stroke(); }
+  const SC = { forest:'#4f7a3e', rock:'#8a8478', ridge:'#b49a52', stairs:'#9b6b3e', valley:'#3f86a8' };
+  x.lineWidth = 4; x.lineCap = 'round';
+  for(let i=1;i<N;i+=2){ x.strokeStyle = SC[sectionAt(cum[i])] || '#4f7a3e'; x.beginPath(); x.moveTo(X(path[i-1].x), Z(path[i-1].z)); x.lineTo(X(path[Math.min(N-1, i+1)].x), Z(path[Math.min(N-1, i+1)].z)); x.stroke(); }
+  x.font = '15px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  const mark = (ic, wx, wz) => x.fillText(ic, X(wx), Z(wz));
+  restSpots.forEach(r => mark('🪑', r.x, r.z)); springSpots.forEach(w => mark('💧', w.x, w.z)); climbSpots.forEach(cc => mark('🧗', cc.x, cc.z));
+  mark('⛰️', path[N-1].x, path[N-1].z); mark('🚩', path[0].x, path[0].z);
+  Online.remotes.forEach(r => { x.fillStyle = '#3d6fb4'; x.beginPath(); x.arc(X(r.x), Z(r.z), 5, 0, TAU); x.fill(); });
+  x.fillStyle = '#d8322a'; x.beginPath(); x.arc(X(px), Z(pz), 7, 0, TAU); x.fill(); x.strokeStyle = '#fff'; x.lineWidth = 2; x.stroke();
+  $('mapTitle').textContent = M.name + ' 등산 지도 · ' + M.peak + '까지 ' + fmtDist(Math.max(0, total - sPlayer)*METERS);
+  $('mapModal').classList.remove('hidden');
+}
+function renderGearBar(){
+  const bar = $('gearBar'), mask = gearMask(), key = myJob + mask + (Gear.light ? 'L' : '') + (Gear.flash ? 'F' : '') + (Gear.zoom ? 'Z' : '');
+  if(bar.dataset.k === key) return; bar.dataset.k = key; bar.textContent = '';
+  (myJob === 'ranger' ? ['map', 'radio', 'binoc', 'flash', 'aid', 'whistle', 'sapling', 'flag'] : ['chair', 'mat', 'tent', 'bottle', 'stove', 'lantern', 'clip']).forEach(kind => {
+    const i = TREASURES.findIndex(t => t.kind === kind); if(i < 0 || !(mask & (1 << i))) return;
+    const b = document.createElement('button'); b.className = 'gb' + ((kind === 'lantern' && Gear.light) || (kind === 'flash' && Gear.flash) || (kind === 'binoc' && Gear.zoom) ? ' on' : '') + (kind === 'clip' ? ' passive' : '');
+    const im = document.createElement('img'); im.src = treasureIcon(TREASURES[i].id, 96); b.appendChild(im);
+    b.title = GEAR_USE[kind].label; b.setAttribute('aria-label', GEAR_USE[kind].label);
+    b.addEventListener('click', () => GEAR_USE[kind].fn()); bar.appendChild(b);
+  });
 }
 
 /* ---------- 달리기 ---------- */
@@ -2406,14 +2784,14 @@ function startClimb(c){
   if(!c || Climb.on) return;
   if(Rest.on) standUp(); setAuto(false); Move.target = null; setRun(false);
   Climb.on = true; Climb.phase = 'up'; Climb.t = 0; Climb.c = c; player.climbing = true;
-  toast('🧗 밧줄을 꽉 잡고 올라가요', 2.5); Online.sendT = 0;
+  toast(hasGear('clip') ? '🔗 카라비너를 걸고 안전하게, 더 빨리 올라가요' : '🧗 밧줄을 꽉 잡고 올라가요', 2.5); Online.sendT = 0;
 }
 function climbDown(){ if(Climb.on && Climb.phase === 'top'){ Climb.phase = 'down'; Climb.t = 0; player.climbing = true; $('btnClimbDown').classList.add('hidden'); Online.sendT = 0; } }
 const lerp3 = (a, b, k) => [a.x + (b.x - a.x)*k, a.y + (b.y - a.y)*k, a.z + (b.z - a.z)*k];
 function updateClimb(dt, t){
   const c = Climb.c; let q;
   if(Climb.phase === 'up'){
-    Climb.t += dt/5.5; const k = Math.min(1, Climb.t);
+    Climb.t += dt/(hasGear('clip') ? 3.2 : 5.5); const k = Math.min(1, Climb.t);
     q = k < 0.86 ? lerp3(c.base, c.edge, k/0.86) : lerp3(c.edge, c.top, (k - 0.86)/0.14);
     facing = c.rot + Math.PI; if(Math.floor(t*2.2) !== Math.floor((t - dt)*2.2)) Sound.footstep();
     if(k >= 1){ Climb.phase = 'top'; player.climbing = false; $('btnClimbDown').classList.remove('hidden');
@@ -2434,21 +2812,20 @@ function updateClimb(dt, t){
 function nearBench(){ let best = null, bd = 3.2; benches.forEach(b => { const d = Math.hypot(b.x - px, b.z - pz); if(d < bd){ bd = d; best = b; } }); return best; }
 function sitDown(b){
   if(!b) return;
-  setAuto(false);
-  // take the free side of the bench if someone is already sitting there
-  const lat = [b.oz, -b.ox]; let seat = -0.45;
-  Online.remotes.forEach(r => { if(r.h.sitting && Math.hypot(r.x - (b.x + lat[0]*seat), r.z - (b.z + lat[1]*seat)) < 0.4) seat = 0.45; });
+  setAuto(false); Move.target = null;
+  const lat = [b.oz, -b.ox]; let seat = b.single ? 0 : -0.45;
+  if(!b.single) Online.remotes.forEach(r => { if(r.h.sitting && Math.hypot(r.x - (b.x + lat[0]*seat), r.z - (b.z + lat[1]*seat)) < 0.4) seat = 0.45; });
   Rest.on = true; Rest.b = b; Rest.seat = seat; Rest.sx = b.x + lat[0]*seat + b.ox*0.02; Rest.sz = b.z + lat[1]*seat + b.oz*0.02;
-  player.sitting = true; yaw = b.rot; camInit = false; lastDrag = -10;
+  player.sitting = !b.lie; player.lying = !!b.lie; yaw = b.rot; camInit = false; lastDrag = -10;
   $('hud').classList.add('resting'); $('btnStand').classList.remove('hidden');
-  const msg = $('restMsg'); msg.textContent = '🍃 ' + M.name + ' 쉼터 · 바람 소리를 들으며 잠시 쉬어가요'; msg.classList.add('show');
+  const msg = $('restMsg'); msg.textContent = b.msg || ('🍃 ' + M.name + ' 쉼터 · 바람 소리를 들으며 잠시 쉬어가요'); msg.classList.add('show');
   clearTimeout(Rest.msgT); Rest.msgT = setTimeout(() => msg.classList.remove('show'), 5000);
   Online.sendT = 0;
 }
 function standUp(){
   if(!Rest.on) return;
-  Rest.on = false; player.sitting = false;
-  const b = Rest.b; px = b.x + b.ox*-1.2; pz = b.z + b.oz*-1.2; py = height(px, pz); facing = b.rot + Math.PI;
+  Rest.on = false; player.sitting = false; player.lying = false; player.root.rotation.x = 0;
+  const b = Rest.b; if(b.temp){ scene.remove(b.temp); } px = b.x + b.ox*-1.2; pz = b.z + b.oz*-1.2; py = height(px, pz); facing = b.rot + Math.PI;
   $('hud').classList.remove('resting'); $('btnStand').classList.add('hidden'); $('restMsg').classList.remove('show');
   Online.sendT = 0;
 }
@@ -2466,8 +2843,8 @@ function updatePlayer(dt, t){
   if(Rest.on){
     if(il > 0.5){ standUp(); }
     else {
-      const b = Rest.b; px = Rest.sx; pz = Rest.sz; py = b.y - 0.1; facing = b.rot;
-      player.root.position.set(px, py, pz); player.root.rotation.y = facing;
+      const b = Rest.b; px = Rest.sx; pz = Rest.sz; py = b.y - (b.lie ? -0.32 : 0.1); facing = b.rot;
+      player.root.position.set(px, py, pz); player.root.rotation.set(b.lie ? -Math.PI/2 + 0.04 : 0, facing, 0);
       animHiker(player, dt, 0, t);
       if(t - lastDrag > 2.5) yaw += angDiff(b.rot + Math.sin(t*0.1)*0.22, yaw) * Math.min(1, dt*0.6);
       return;
@@ -2525,7 +2902,7 @@ function updatePlayer(dt, t){
     const sec = Math.round(clock - startTime), mm = Math.floor(sec/60), ss = sec%60;
     $('summitText').innerHTML = M.name + ' ' + M.peak + ', 해발 ' + M.elev.toLocaleString('ko-KR') + 'm에 올랐어요.<br>' + (mm>0 ? mm + '분 ' : '') + ss + '초 동안 걸었어요. 수고했어요.';
     if(TOD.altDeg > -6 && TOD.altDeg < 10) $('summitText').innerHTML += '<br>🌅 정상에서 해를 맞이했어요.';
-    $('summitTreasure').textContent = '이번 산행에서 모은 캠핑 장비 ' + tFoundNow + '/' + TREASURES.length + (tFoundNow === TREASURES.length ? ' · 전부 찾았어요!' : '');
+    $('summitTreasure').textContent = (myJob === 'ranger' ? '이번 산행에서 모은 관리 장비 ' : '이번 산행에서 모은 캠핑 장비 ') + tFoundNow + '/' + TREASURES.length + (tFoundNow === TREASURES.length ? ' · 전부 찾았어요!' : '');
     awardSummit(sec);
     setTimeout(() => $('summit').classList.remove('hidden'), 1600);
   }
@@ -2533,6 +2910,17 @@ function updatePlayer(dt, t){
 
 let viewShifted = false;
 function updateCamera(dt){
+  const wantFov = Gear.zoom && started ? 16 : 55; if(Math.abs(camera.fov - wantFov) > 0.05){ camera.fov += (wantFov - camera.fov)*Math.min(1, dt*6); camera.updateProjectionMatrix(); }
+  if(Gear.zoom && started){
+    const lp = 0.35 - pitch*0.9; camera.position.set(px, py + 1.7, pz);
+    camTarget.set(px + Math.sin(yaw)*Math.cos(lp)*50, py + 1.7 + Math.sin(lp)*50, pz + Math.cos(yaw)*Math.cos(lp)*50); camera.lookAt(camTarget); return;
+  }
+  if(started && Rest.on && Rest.b && Rest.b.lie){
+    const b = Rest.b, k = 1 - Math.exp(-dt*3), sw = Math.sin(clock*0.07)*0.6;
+    const cx = px - b.ox*0.9, cz = pz - b.oz*0.9, cy = py + 0.9;
+    camera.position.x += (cx - camera.position.x)*k; camera.position.y += (cy - camera.position.y)*k; camera.position.z += (cz - camera.position.z)*k;
+    camTarget.set(px + b.ox*6 + b.oz*sw*4, py + 22, pz + b.oz*6 - b.ox*sw*4); camera.lookAt(camTarget); return;
+  }
   const pv = !started, rs = Rest.on && started, D = pv ? 8.5 : rs ? 4.6 : dist, P = pv ? 0.1 : rs ? 0.42 : pitch;
   if(pv !== viewShifted){ viewShifted = pv; if(pv) camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight*0.27, innerWidth, innerHeight); else camera.clearViewOffset(); }
   const tx = px, ty = py + (pv ? 1.05 : rs ? 1.9 : 1.5), tz = pz;
@@ -2620,7 +3008,7 @@ joyEl.addEventListener('pointerup', joyEnd); joyEl.addEventListener('pointercanc
 
 try { const sv = JSON.parse(localStorage.getItem('sanhaeng2') || '{}'); if(sv.n) $('nick').value = cleanName(sv.n); if(sv.c >= 0 && sv.c < JACKETS.length) myColor = sv.c; myJob = jobOf(sv.j); } catch(e){}
 function setPlayerJob(job){
-  myJob = jobOf(job);
+  myJob = jobOf(job); switchItemSet(myJob);
   document.querySelectorAll('#jobs .job').forEach(b => b.classList.toggle('sel', b.dataset.j === myJob));
   $('jobDesc').textContent = JOBS[myJob].desc;
   if(!player || player.job === myJob) return;
@@ -2685,6 +3073,7 @@ MIX_LABELS.forEach(([k, lab]) => {
   row.append(a, r, v); $('mixRows').appendChild(row);
 });
 $('btnSound').addEventListener('click', () => { $('mixer').classList.remove('hidden'); if(Sound.ctx && Sound.ctx.state !== 'running') Sound.ctx.resume().catch(()=>{}); });
+$('btnMapClose').addEventListener('click', () => $('mapModal').classList.add('hidden'));
 $('btnMixClose').addEventListener('click', () => $('mixer').classList.add('hidden'));
 $('mixer').addEventListener('click', e => { if(e.target === $('mixer')) $('mixer').classList.add('hidden'); });
 $('btnMute').addEventListener('click', () => { const on = Sound.toggle(); $('btnMute').textContent = on ? '전체 끄기' : '전체 켜기'; $('btnSound').innerHTML = on ? ICON_ON : ICON_OFF; });
@@ -2720,7 +3109,8 @@ function frame(now){
   if(started) updatePlayer(dt, clock);
   else { yaw += dt*0.06; animHiker(player, dt, 0, clock); player.root.position.set(px,py,pz); player.root.rotation.y = yaw + Math.PI; }
   updateNPCs(dt, clock);
-  updateTreasures(dt, clock); updateAnimals(dt, clock); updateLandslide(dt); updateBurst(dt);
+  updateTreasures(dt, clock); updateAnimals(dt, clock); updateLandslide(dt); updateBurst(dt); updateSteam(dt); updateLantern(dt); updateRangerFx(dt); updateScenery(dt);
+  if(started) renderGearBar();
   { let wd = 1e9; springs.forEach(w => { w.water.scale.setScalar(1 + Math.sin(clock*5 + w.x)*0.015); w.dippers.forEach((d, i) => d.rotation.z = Math.sin(clock*1.6 + i*1.3)*0.05*U.uWind.value); w.stream.material.opacity = 0.55 + Math.sin(clock*23 + w.z)*0.15; wd = Math.min(wd, Math.hypot(w.x - px, w.z - pz)); });
     let sv = 0; streams.forEach(st => { st.tex.offset.y -= dt*0.6; const dx = px - st.x, dz = pz - st.z, along = clamp(dx*st.ax + dz*st.az, -st.len/2, st.len/2);
       const d = Math.hypot(dx - st.ax*along, dz - st.az*along); sv = Math.max(sv, 1 - smoothstep(3, 40, d)); });
@@ -2732,7 +3122,7 @@ function frame(now){
   if(moveMarker.visible){ const k = Move.target ? 0.9 : Math.max(0, moveMarker.material.opacity - dt*2.5); moveMarker.material.opacity = k; moveMarker.scale.setScalar(1 + Math.sin(clock*6)*0.08); if(k <= 0) moveMarker.visible = false; }
   updateLeaves(dt, clock, px, py, pz, 0.3 + g);
   ribbons.forEach(r => { r.mesh.rotation.z = Math.sin(clock*3.2 + r.ph)*0.25*(0.4+g); r.mesh.rotation.x = Math.sin(clock*2.1 + r.ph)*0.2*(0.4+g); });
-  clouds.forEach(c => { if(c.isSea){ return; } c.position.x += dt*1.6; if(c.position.x > 520) c.position.x = -520; });
+  clouds.forEach(c => { if(c.isSea){ return; } c.position.x += dt*1.6; if(c.position.x > 640) c.position.x = -640; });
   sky.position.copy(camera.position);
   updateRain(dt); updateTimeOfDay(dt);
   sunGlow.position.copy(camera.position).addScaledVector(TOD.altDeg >= -4 ? sunDir : sunLightDir, 700);
@@ -2761,8 +3151,9 @@ function loadMountain(id){
   seed = M.seed * 7919 + 1;
   resumeOk = false;
   clearSlide(); Slide.timer = 75;
+  TREASURES = setFor(myJob);
   clearWorld(); genPath(); buildWorld(); buildTreasures(); collectLitMats();
-  try { tBook = JSON.parse(localStorage.getItem('sanhaeng-treasure-' + M.id) || '{}') || {}; } catch(e){ tBook = {}; }
+  loadBook();
   tFoundNow = 0; tNewIds.clear(); refreshTreasureHUD();
   npcs.forEach(n => { n.s = total*n.frac; n.rest = 0; });
   resetToStart();
