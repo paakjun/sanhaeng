@@ -91,6 +91,11 @@
   .swatches { display:flex; gap:12px; }
   .swatch { width:30px; height:30px; border-radius:50%; border:2px solid rgba(255,255,255,0.55); cursor:pointer; padding:0; transition:transform .15s; }
   #start .swatch { padding:0; box-shadow:none; }
+  #start:not(.dressing) .setup, #start:not(.dressing) #btnBack, #start:not(.dressing) #dressTitle { display:none; }
+  #start.dressing h1, #start.dressing #mtDesc, #start.dressing .mts, #start.dressing #todStart, #start.dressing #hint { display:none; }
+  #start.dressing { background:linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 46%, rgba(30,44,32,0.7) 64%, rgba(26,38,28,0.85) 100%) !important; }
+  #start #btnBack { position:absolute; top:max(14px, env(safe-area-inset-top)); left:14px; padding:9px 16px; font-size:14px; background:rgba(250,246,236,0.85); color:#2f3b2f; box-shadow:none; }
+  #dressTitle { font-family:"Gowun Batang", serif; font-size:20px; font-weight:700; letter-spacing:0.12em; margin-bottom:10px; text-shadow:0 2px 10px rgba(20,30,20,0.5); }
   #start #btnLite { border:none; width:auto; margin:0; display:inline; box-shadow:none !important; background:rgba(250,246,236,0.18); color:inherit; font:inherit; font-size:12px; padding:4px 10px; border-radius:999px; cursor:pointer; box-shadow:none; }
   .wear { display:flex; flex-direction:column; gap:7px; width:100%; max-width:440px; }
   .wrow { display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:center; }
@@ -274,6 +279,8 @@
   <h1>등산의 목적</h1>
   <p id="mtDesc">새소리와 바람 소리를 들으며, 등산로를 따라 천천히 정상까지.</p>
   <div class="mts" id="mts"></div>
+  <button id="btnBack">← 산 다시 고르기</button>
+  <div id="dressTitle">오늘의 등산복</div>
   <div class="setup">
     <div class="jobs" id="jobs"></div>
     <div id="jobDesc" style="font-size:13px;opacity:.9;margin-top:-4px"></div>
@@ -283,7 +290,7 @@
   </div>
   <button id="btnStart" disabled>숲을 만드는 중…</button>
   <div id="todStart"><span id="todStartTxt"></span><button id="btnSunrise">🌅 일출 보기</button></div>
-  <small id="hint"><span id="roomLine"></span><br>이어폰을 끼면 더 좋아요 · <button id="btnLite"></button></small>
+  <small id="hint"><span id="roomLine"></span><br>이어폰을 끼면 더 좋아요</small>
 </div>
 
 <div id="koFade"><div id="koText"></div></div>
@@ -388,7 +395,7 @@
 "use strict";
 const TAU = Math.PI * 2;
 const isTouch = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window);
-let LITE = isTouch; try { const v = localStorage.getItem('sanhaeng-lite'); if(v === '1') LITE = true; else if(v === '0') LITE = false; } catch(e){}
+const LITE = false;
 const Q = LITE ? { pr: 1.25, shadow: 768, seg: 170, trees: 950, treesMax: 1200, grass: 2600, litter: 1200, stars: 380 }
                : { pr: isTouch ? 1.6 : 2, shadow: isTouch ? 1024 : 2048, seg: isTouch ? 230 : 280, trees: isTouch ? 1400 : 1900, treesMax: isTouch ? 1750 : 2350, grass: isTouch ? 5000 : 8000, litter: isTouch ? 2200 : 3500, stars: isTouch ? 500 : 900 };
 
@@ -3660,6 +3667,14 @@ function updatePlayer(dt, t){
 let viewShifted = false;
 function updateCamera(dt){
   updateOcclusion(dt);
+  if(Dress.on && !started){
+    if(!viewShifted){ viewShifted = true; } camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight*0.24, innerWidth, innerHeight);
+    const a = facing + Math.sin(clock*0.3)*0.55, cx = px + Math.sin(a)*5.6, cz = pz + Math.cos(a)*5.6, cy = py + 1.6, k = camInit ? 1 - Math.exp(-dt*4) : 1;
+    camera.position.x += (cx - camera.position.x)*k; camera.position.y += (cy - camera.position.y)*k; camera.position.z += (cz - camera.position.z)*k; camInit = true;
+    camTarget.set(px, py + 0.95, pz); camera.lookAt(camTarget);
+    if(player){ player.root.position.set(px, py, pz); player.root.rotation.y = facing; animHiker(player, dt, 0, clock); }
+    return;
+  }
   const wantFov = Gear.zoom && started ? 16 : 55; if(Math.abs(camera.fov - wantFov) > 0.05){ camera.fov += (wantFov - camera.fov)*Math.min(1, dt*6); camera.updateProjectionMatrix(); }
   if(Gear.zoom && started){
     const lp = 0.35 - pitch*0.9; camera.position.set(px, py + 1.7, pz);
@@ -3801,8 +3816,6 @@ JACKETS.forEach((c, i) => {
   { const r = row('바지', 'p'); PANTS.forEach(([c, t], i) => { const b = document.createElement('button'); b.className = 'pchip'; b.title = t; b.setAttribute('aria-label', t + ' 바지'); b.style.background = '#' + c.toString(16).padStart(6, '0'); b.addEventListener('click', () => setWear('p', i)); r.appendChild(b); }); }
   paint(); box.style.display = myJob === 'hiker' ? '' : 'none';
 }
-{ const bl = $('btnLite'), paintL = () => bl.textContent = LITE ? '🍃 가볍게 모드 켜짐' : '✨ 고화질 모드';
-  paintL(); bl.addEventListener('click', () => { try { localStorage.setItem('sanhaeng-lite', LITE ? '0' : '1'); } catch(e){} location.reload(); }); }
 if(!$('nick').value) $('nick').value = randomNick();
 $('btnDice').addEventListener('click', () => { $('nick').value = randomNick(); });
 $('nick').addEventListener('keydown', e => { e.stopPropagation(); if(e.key === 'Enter') $('nick').blur(); });
@@ -3866,7 +3879,13 @@ $('btnOther').addEventListener('click', () => showStartScreen(true));
 $('btnExit').addEventListener('click', () => { $('help').classList.add('hidden'); $('tbook').classList.add('hidden'); showStartScreen(false); });
 $('btnStay').addEventListener('click', () => $('summit').classList.add('hidden'));
 $('btnRestart').addEventListener('click', () => { $('summit').classList.add('hidden'); resetToStart(); resetTreasures(); toast('다시 입구에서 시작해요. 캠핑 장비도 제자리로 돌아갔어요'); });
+const Dress = { on: false };
+function enterDress(){ Dress.on = true; $('start').classList.add('dressing'); $('btnStart').textContent = '🥾 ' + M.name + ' 출발하기'; camInit = false; $('start').scrollTop = 0; }
+function leaveDress(){ Dress.on = false; $('start').classList.remove('dressing'); $('btnStart').textContent = M.name + (resumeOk ? ' 다시 들어가기' : ' 오르기'); camInit = false; }
+$('btnBack').addEventListener('click', leaveDress);
 $('btnStart').addEventListener('click', () => {
+  if(!Dress.on && !resumeOk){ Sound.init(); enterDress(); return; }
+  Dress.on = false; setTimeout(() => $('start').classList.remove('dressing'), 1200);
   Sound.init(); if(Sound.ctx && Sound.ctx.state !== 'running') Sound.ctx.resume().catch(()=>{});
   const s = $('start'); s.style.opacity = '0'; s.style.pointerEvents = 'none'; setTimeout(() => s.classList.add('hidden'), 1200);
   $('hud').classList.remove('hidden');
@@ -3889,7 +3908,7 @@ function frame(now){
   const rawDt = (now - last)/1000; const dt = Math.min(0.05, rawDt); last = now; clock += dt;
   if(started && rawDt > 0 && rawDt < 1){ Perf.acc += rawDt; Perf.n++; if(Perf.acc > 4){ const fps = Perf.n/Perf.acc; Perf.acc = 0; Perf.n = 0;
     const pr = renderer.getPixelRatio();
-    if(fps < 38 && pr > 0.9){ renderer.setPixelRatio(Math.max(0.85, pr - 0.15)); renderer.setSize(innerWidth, innerHeight, false); }
+    if(fps < 30 && pr > 1.1){ renderer.setPixelRatio(Math.max(0.85, pr - 0.15)); renderer.setSize(innerWidth, innerHeight, false); }
     else if(fps > 56 && pr < basePR - 0.01){ renderer.setPixelRatio(Math.min(basePR, pr + 0.1)); renderer.setSize(innerWidth, innerHeight, false); } } }
   const g = gust(clock);
   U.uTime.value = clock; U.uWind.value = 0.45 + 1.7*g;
@@ -3982,6 +4001,7 @@ function showStartScreen(reset){
   $('summit').classList.add('hidden'); $('hud').classList.add('hidden');
   const s = $('start'); s.classList.remove('hidden'); s.style.pointerEvents = ''; requestAnimationFrame(() => s.style.opacity = '1');
   $('btnStart').textContent = M.name + (resumeOk ? ' 다시 들어가기' : ' 오르기');
+  Dress.on = false; s.classList.remove('dressing');
 }
 
 /* ---------- boot ---------- */
