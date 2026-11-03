@@ -50,6 +50,7 @@ function sanitize(s) {
     e: EMOTES.has(s.e) ? s.e : '', et: num(s.et, 0, 1e15),
     tr: num(s.tr, 0, 8) | 0,
     mt: MOUNTAINS.includes(s.mt) ? s.mt : '',
+    j: ['hiker', 'bandit', 'ranger', 'influencer'].includes(s.j) ? s.j : 'hiker',
   };
 }
 const send = (ws, m) => { if (ws.readyState === 1) ws.send(JSON.stringify(m)); };

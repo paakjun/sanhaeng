@@ -104,6 +104,20 @@
   #start .mt.sel .live { color:#b4532c; }
   #start p { margin:10px 0 16px !important; }
   #card .title { letter-spacing:0.12em !important; }
+  .jobs { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; }
+  #start .job { padding:8px 13px; border-radius:999px; font-size:14px; box-shadow:none; background:rgba(250,246,236,0.18); color:#fffaf0; border:1.5px solid rgba(255,255,255,0.4); }
+  #start .job.sel { background:#f6f0e2; color:#2f4a35; border-color:#f6f0e2; }
+  #start { overflow-y:auto; justify-content:safe center; }
+  #start h1 { font-size:clamp(44px, 12vw, 104px) !important; }
+  .setup { gap:12px !important; margin-bottom:18px !important; }
+  #start { justify-content:flex-end !important; padding:14px 14px 18px !important;
+           background:linear-gradient(180deg, rgba(246,240,226,0) 0%, rgba(246,240,226,0) 35%, rgba(36,52,38,0.62) 62%, rgba(30,44,32,0.78) 100%) !important; }
+  #start h1 { position:absolute; top:max(4vh, 18px); left:0; right:0; margin:0 !important; text-align:center; padding-left:0.35em; font-size:clamp(40px, 11vw, 88px) !important; }
+  #start .mt { width:min(116px, calc((100vw - 72px) / 3)) !important; }
+  @media (min-aspect-ratio: 1/1) { #start h1 { text-align:left; left:36px; right:auto; top:26px; padding-left:0; font-size:clamp(40px, 6vw, 72px) !important; } }
+  #start p#mtDesc { font-size:14px; margin:0 0 10px !important; }
+  .mts { margin-bottom:14px !important; }
+  #start small { margin-top:12px !important; }
 </style>
 </head>
 <body>
@@ -120,6 +134,7 @@
     <button id="btnSound" class="icon" aria-label="소리 켜기/끄기"></button>
     <button id="btnInvite" class="icon" aria-label="친구 초대 링크 복사"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></button>
     <button id="btnHelp" class="icon" aria-label="도움말">?</button>
+    <button id="btnExit" class="icon" aria-label="산에서 나가기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 16l-4-4 4-4"/><path d="M6 12h10"/></svg></button>
   </div>
   <div id="players"></div>
   <div id="emotes">
@@ -137,6 +152,7 @@
   <p id="mtDesc">새소리와 바람 소리를 들으며, 등산로를 따라 천천히 정상까지.</p>
   <div class="mts" id="mts"></div>
   <div class="setup">
+    <div class="jobs" id="jobs"></div>
     <div class="nickrow"><input id="nick" maxlength="10" placeholder="산에서 쓸 이름" autocomplete="off" enterkeyhint="done"><button id="btnDice" class="dice" aria-label="이름 다시 뽑기">🎲</button></div>
     <div class="swatches" id="swatches"></div>
   </div>
@@ -175,6 +191,7 @@
       <li>PC: WASD 또는 방향키, Shift로 빠르게</li>
       <li>화면을 드래그하면 둘러보기 · 두 손가락/휠로 거리 조절</li>
       <li>‘길 따라 걷기’를 켜면 알아서 등산로를 따라 올라가요</li>
+      <li>오른쪽 위 문 버튼으로 산에서 나갔다가, 다시 들어오면 있던 자리에서 이어서 걸어요</li>
       <li>걷다 보면 다람쥐·산토끼·고라니·꿩이 튀어나와요. 가까이 가면 놀라서 달아나요</li>
       <li>길옆 어딘가에 보물 8개가 숨어 있어요. 반짝이는 곳으로 가까이 가면 주워져요</li>
     </ul>
@@ -616,34 +633,85 @@ function buildWorld(){
 }
 
 /* ---------- hikers ---------- */
+const JOBS = {
+  hiker:      { name:'등산객',     ic:'🎒' },
+  bandit:     { name:'산적',       ic:'🏴' },
+  ranger:     { name:'관리인',     ic:'🌲' },
+  influencer: { name:'인플루언서', ic:'📸' },
+};
+const JOB_IDS = Object.keys(JOBS);
 function makeHiker(o){
-  const M = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 });
+  const job = JOBS[o.job] ? o.job : 'hiker';
+  const Mt = (c, e) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, emissive: e || 0x000000 });
   const root = new THREE.Group(), upper = new THREE.Group(); root.add(upper); upper.position.y = 0.62;
-  const skin = M(0xf6d6b6), pants = M(o.pants), jacket = M(o.jacket), dark = M(0x222222);
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.37, 0.64, 12), jacket); torso.position.y = 0.32; upper.add(torso);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 18, 14), skin); head.position.y = 0.96; upper.add(head);
-  [-1,1].forEach(sx => {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), dark); eye.position.set(0.12*sx, 0.98, 0.31); upper.add(eye);
-    const ch = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), M(0xf3a3a0)); ch.scale.set(1, 0.6, 0.4); ch.position.set(0.2*sx, 0.88, 0.27); upper.add(ch);
-  });
-  const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.36, 0.2, 14), M(o.hat)); hat.position.y = 1.24; upper.add(hat);
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.035, 18), M(o.hat)); brim.position.y = 1.16; upper.add(brim);
-  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.52, 0.25), M(o.pack)); pack.position.set(0, 0.36, -0.31); upper.add(pack);
-  const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.5, 10), M(0xd8c39a)); roll.rotation.z = Math.PI/2; roll.position.set(0, 0.67, -0.31); upper.add(roll);
+  const skin = Mt(0xf6d6b6), dark = Mt(0x222222), accent = Mt(o.jacket);
+  const a = (geo, mat, x, y, z, sx, sy, sz, rx, ry, rz, parent) => { const m = new THREE.Mesh(geo, mat); m.position.set(x,y,z); m.scale.set(sx||1, sy||1, sz||1); m.rotation.set(rx||0, ry||0, rz||0); (parent||upper).add(m); return m; };
+  const half = (r) => new THREE.SphereGeometry(r, 18, 10, 0, TAU, 0, Math.PI/2);
+  let shirt, pantsC, shoeC = 0x4a3a2c;
+  if(job === 'hiker'){ shirt = accent; pantsC = o.pants || 0x3b4a5a; }
+  else if(job === 'bandit'){ shirt = Mt(0xebe4d2); pantsC = 0x6c6f78; shoeC = 0xc9a86a; }
+  else if(job === 'ranger'){ shirt = Mt(0x5d6b3e); pantsC = 0x3c4030; shoeC = 0x2b2620; }
+  else { shirt = accent; pantsC = 0xf2efe8; shoeC = 0xf7f7f7; }
+  a(new THREE.CylinderGeometry(0.3, 0.37, 0.64, 12), shirt, 0, 0.32, 0);
+  a(new THREE.SphereGeometry(0.34, 18, 14), skin, 0, 0.96, 0);
+  [-1,1].forEach(sx => { a(new THREE.SphereGeometry(0.045, 8, 6), dark, 0.12*sx, 0.98, 0.31); a(new THREE.SphereGeometry(0.06, 8, 6), Mt(0xf3a3a0), 0.2*sx, 0.88, 0.27, 1, 0.6, 0.4); });
+  if(job === 'hiker'){
+    a(new THREE.CylinderGeometry(0.3, 0.36, 0.2, 14), Mt(o.hat || 0xf2c14e), 0, 1.24, 0);
+    a(new THREE.CylinderGeometry(0.52, 0.52, 0.035, 18), Mt(o.hat || 0xf2c14e), 0, 1.16, 0);
+    a(new THREE.BoxGeometry(0.46, 0.52, 0.25), Mt(o.pack || 0x4f7c6a), 0, 0.36, -0.31);
+    a(new THREE.CylinderGeometry(0.09, 0.09, 0.5, 10), Mt(0xd8c39a), 0, 0.67, -0.31, 1, 1, 1, 0, 0, Math.PI/2);
+  } else if(job === 'bandit'){
+    const vest = Mt(0x6b4a2c);
+    a(new THREE.CylinderGeometry(0.315, 0.38, 0.46, 12, 1, true, 0.35, TAU - 0.7), vest, 0, 0.29, 0).material.side = THREE.DoubleSide;
+    a(new THREE.TorusGeometry(0.36, 0.035, 6, 18), Mt(0xc9a86a), 0, 0.07, 0, 1, 1, 1, Math.PI/2);
+    a(half(0.352), dark, 0, 0.98, -0.01, 1, 0.9, 1);
+    const band = a(new THREE.CylinderGeometry(0.355, 0.355, 0.09, 18, 1, true), accent, 0, 1.09, 0); band.material.side = THREE.DoubleSide;
+    a(new THREE.ConeGeometry(0.05, 0.22, 5), accent, 0.06, 1.0, -0.36, 1, 1, 1, 0.5, 0, 0.4);
+    a(new THREE.ConeGeometry(0.05, 0.2, 5), accent, -0.06, 0.99, -0.36, 1, 1, 1, 0.5, 0, -0.4);
+    a(new THREE.SphereGeometry(0.2, 12, 8), Mt(0x2b2420), 0, 0.8, 0.17, 1.25, 0.75, 0.6);
+    [-1,1].forEach(sx => a(new THREE.BoxGeometry(0.11, 0.035, 0.02), dark, 0.12*sx, 1.07, 0.32, 1, 1, 1, 0, 0, -0.25*sx));
+    a(new THREE.SphereGeometry(0.25, 12, 9), Mt(0xb8956a), 0, 0.42, -0.34, 1, 0.9, 0.7);
+    a(new THREE.SphereGeometry(0.07, 8, 6), Mt(0xa07f55), 0, 0.66, -0.2);
+  } else if(job === 'ranger'){
+    const felt = Mt(0x8a6d45);
+    a(new THREE.CylinderGeometry(0.22, 0.3, 0.24, 12), felt, 0, 1.29, 0);
+    a(new THREE.CylinderGeometry(0.305, 0.305, 0.05, 14), dark, 0, 1.2, 0);
+    a(new THREE.CylinderGeometry(0.6, 0.6, 0.03, 20), felt, 0, 1.17, 0);
+    a(new THREE.ConeGeometry(0.15, 0.2, 3), accent, 0, 0.56, 0.27, 1, 1, 0.5, Math.PI);
+    a(new THREE.SphereGeometry(0.045, 8, 6), Mt(0xe0b347, 0x5a4410), 0.15, 0.47, 0.33, 1, 1, 0.5);
+    [-1,1].forEach(sx => a(new THREE.BoxGeometry(0.12, 0.1, 0.03), Mt(0x4f5c33), 0.13*sx, 0.36, 0.34));
+    a(new THREE.TorusGeometry(0.365, 0.03, 6, 18), dark, 0, 0.06, 0, 1, 1, 1, Math.PI/2);
+    a(new THREE.BoxGeometry(0.08, 0.17, 0.07), dark, 0.38, 0.1, 0.05);
+    a(new THREE.BoxGeometry(0.38, 0.42, 0.2), Mt(0x4a5236), 0, 0.36, -0.3);
+  } else {
+    a(half(0.36), Mt(0xffffff), 0, 1.0, 0, 1, 0.85, 1);
+    a(new THREE.BoxGeometry(0.34, 0.03, 0.26), Mt(0xffffff), 0, 1.03, 0.4);
+    [-1,1].forEach(sx => a(new THREE.BoxGeometry(0.14, 0.085, 0.03), dark, 0.12*sx, 0.99, 0.32));
+    a(new THREE.BoxGeometry(0.08, 0.02, 0.02), dark, 0, 1.01, 0.33);
+    a(new THREE.SphereGeometry(0.22, 12, 8), accent, 0, 0.62, -0.27, 1.25, 0.65, 0.7);
+    a(new THREE.BoxGeometry(0.2, 0.15, 0.08), Mt(0xf1b9c9), -0.2, 0.14, 0.32);
+    a(new THREE.TorusGeometry(0.33, 0.012, 4, 20), Mt(0xf1b9c9), 0, 0.4, 0, 1, 1, 1, 0.5, 0, 0.7);
+  }
   const limb = (px, py, len, r, mat, parent, endMat) => {
     const pivot = new THREE.Group(); pivot.position.set(px, py, 0); parent.add(pivot);
     const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), mat); m.position.y = -len/2; pivot.add(m);
     const e = new THREE.Mesh(endMat.geo, endMat.mat); e.position.set(0, -len - 0.02, endMat.z || 0); pivot.add(e);
     return pivot;
   };
-  const shoe = { geo: new THREE.BoxGeometry(0.18, 0.12, 0.3), mat: M(0x4a3a2c), z: 0.05 };
+  const shoe = { geo: new THREE.BoxGeometry(0.18, 0.12, 0.3), mat: Mt(shoeC), z: 0.05 };
   const hand = { geo: new THREE.SphereGeometry(0.075, 8, 6), mat: skin };
-  const legL = limb(-0.15, 0.6, 0.5, 0.1, pants, root, shoe), legR = limb(0.15, 0.6, 0.5, 0.1, pants, root, shoe);
-  const armL = limb(-0.38, 0.56, 0.46, 0.075, jacket, upper, hand), armR = limb(0.38, 0.56, 0.46, 0.075, jacket, upper, hand);
+  const pants = Mt(pantsC);
+  const legL = limb(-0.15, 0.6, 0.5, job === 'bandit' ? 0.12 : 0.1, pants, root, shoe), legR = limb(0.15, 0.6, 0.5, job === 'bandit' ? 0.12 : 0.1, pants, root, shoe);
+  const armL = limb(-0.38, 0.56, 0.46, 0.075, shirt, upper, hand), armR = limb(0.38, 0.56, 0.46, 0.075, shirt, upper, hand);
+  if(job === 'bandit') [legL, legR].forEach(l => a(new THREE.CylinderGeometry(0.105, 0.1, 0.16, 8), Mt(0xf2efe6), 0, -0.4, 0, 1, 1, 1, 0, 0, 0, l));
+  if(job === 'influencer'){
+    a(new THREE.CylinderGeometry(0.014, 0.014, 0.95, 6), Mt(0x2a2a2a), 0, -0.95, 0, 1, 1, 1, 0, 0, 0, armR);
+    a(new THREE.BoxGeometry(0.13, 0.22, 0.02), Mt(0x161616, 0x0a1a2a), 0, -1.45, 0.03, 1, 1, 1, 0.3, 0, 0, armR);
+  }
   armL.rotation.z = -0.12; armR.rotation.z = 0.12;
   root.traverse(m => { if(m.isMesh) m.castShadow = true; });
   scene.add(root);
-  return { root, upper, legL, legR, armL, armR, phase: 0, spd: 0, jacketMat: jacket, waveT: 0, cheerT: 0 };
+  return { root, upper, legL, legR, armL, armR, phase: 0, spd: 0, jacketMat: accent, waveT: 0, cheerT: 0, job };
 }
 function animHiker(h, dt, spd, t){
   h.spd += (spd - h.spd) * Math.min(1, dt*8);
@@ -654,6 +722,7 @@ function animHiker(h, dt, spd, t){
   h.armL.rotation.x = -sw*0.8; h.armR.rotation.x = sw*0.8;
   h.upper.position.y = 0.62 + Math.abs(Math.sin(h.phase))*0.05*amt + Math.sin(t*2)*0.006;
   h.armR.rotation.z = 0.12; h.armL.rotation.z = -0.12;
+  if(h.job === 'influencer' && !(h.waveT > 0) && !(h.cheerT > 0)){ h.armR.rotation.x = -1.95 + Math.sin(t*1.3)*0.05; h.armR.rotation.z = 0.3; }
   if(h.waveT > 0){ h.waveT -= dt; h.armR.rotation.x = -2.75; h.armR.rotation.z = 0.15 + 0.4*Math.sin(t*11); }
   if(h.cheerT > 0){ h.cheerT -= dt; h.armL.rotation.x = -2.9; h.armR.rotation.x = -2.9; h.armL.rotation.z = -0.35; h.armR.rotation.z = 0.35;
     h.upper.position.y += Math.max(0, Math.sin((1.6 - h.cheerT)*8))*0.08; }
@@ -722,15 +791,6 @@ const Sound = {
     this.windLP = ctx.createBiquadFilter(); this.windLP.type = 'lowpass'; this.windLP.frequency.value = 450; this.windLP.Q.value = 0.6;
     this.windGain = ctx.createGain(); this.windGain.gain.value = 0.15;
     loop(pink).connect(this.windLP); this.windLP.connect(this.windGain); this.windGain.connect(this.master);
-
-    // leaves rustling: bright noise with fluttering amplitude
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1900;
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7500;
-    this.leafGain = ctx.createGain(); this.leafGain.gain.value = 0.03;
-    loop(white).connect(hp); hp.connect(lp); lp.connect(this.leafGain); this.leafGain.connect(this.master);
-    const flutter = ctx.createBiquadFilter(); flutter.type = 'lowpass'; flutter.frequency.value = 14;
-    this.flutterGain = ctx.createGain(); this.flutterGain.gain.value = 0.9;
-    loop(white).connect(flutter); flutter.connect(this.flutterGain); this.flutterGain.connect(this.leafGain.gain);
 
     // birds bus with a soft forest echo
     this.birds = ctx.createGain(); this.birds.gain.value = 1; this.birds.connect(this.master);
@@ -827,8 +887,6 @@ const Sound = {
     if(!this.ctx) return; const t = this.ctx.currentTime;
     this.windGain.gain.setTargetAtTime(0.06 + 0.24*g*g, t, 0.4);
     this.windLP.frequency.setTargetAtTime(260 + 700*g, t, 0.4);
-    this.leafGain.gain.setTargetAtTime(0.008 + 0.06*g, t, 0.3);
-    this.flutterGain.gain.setTargetAtTime(0.4 + 1.6*g, t, 0.3);
   },
   toggle(){
     this.on = !this.on;
@@ -870,10 +928,13 @@ const NICK_A = ['느긋한','포근한','싱그러운','산뜻한','다정한','
 const NICK_B = ['다람쥐','산토끼','청설모','딱따구리','박새','솔방울','도토리','단풍잎','산들바람','구절초','쑥부쟁이','옹달샘','조약돌','이끼','산비둘기','너구리','반딧불','은행잎','솔잎','산새','오솔길','아기곰','고슴도치','버섯','들꽃','억새'];
 function randomNick(){ for(let i=0;i<20;i++){ const n = NICK_A[Math.floor(Math.random()*NICK_A.length)] + ' ' + NICK_B[Math.floor(Math.random()*NICK_B.length)]; if(n.length <= 10) return n; } return '느긋한 다람쥐'; }
 const Online = { room: null, user: null, status: 'connecting', remotes: new Map(), names: {}, sentKey: '', sendT: 0, emote: '', emoteAt: 0 };
-let myName = '', myColor = 0, myBubble;
+let myName = '', myColor = 0, myBubble, myJob = 'hiker';
 const ROOM = (new URLSearchParams(location.search).get('room') || 'lobby').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32) || 'lobby';
 const ROOM_LABEL = ROOM === 'lobby' ? '모두의 산' : ROOM;
 const Net = { peers: new Map(), backoff: 1000, ws: null };
+Online.away = true;
+function goAway(){ Online.away = true; Online.room = null; if(Net.ws){ try { Net.ws.close(); } catch(e){} } Net.peers.clear(); clearRemotes(); }
+function goBack(){ Online.away = false; Net.backoff = 1000; Online.sentKey = ''; if(!Net.ws) initOnline(); }
 function initialMountain(){
   const q = new URLSearchParams(location.search).get('mt');
   if(q && MT_BY_ID[q]) return q;
@@ -885,7 +946,7 @@ function onMountainChanged(){
   try { history.replaceState(null, '', location.pathname + shareQuery()); } catch(e){}
   $('roomLine').textContent = '방: ' + ROOM_LABEL + ' · ' + M.name + ' · 같은 링크로 들어온 사람과 함께 걸어요';
   clearRemotes(); Net.peers.clear(); Online.sentKey = '';
-  if(Net.ws){ Net.backoff = 300; try { Net.ws.close(); } catch(e){} }
+  if(Net.ws){ Net.backoff = 300; try { Net.ws.close(); } catch(e){} }  // reconnects to the new mountain unless away
 }
 async function pollCounts(){
   if(!/^https?:$/.test(location.protocol)) return;
@@ -897,6 +958,7 @@ function initOnline(){
   connect();
 }
 function connect(){
+  if(Online.away || Net.ws) return;
   Online.status = 'connecting';
   let ws;
   try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws?mt=' + M.id + '&room=' + encodeURIComponent(ROOM)); Net.ws = ws; }
@@ -916,7 +978,7 @@ function connect(){
   ws.onclose = () => { if(Net.ws === ws) Net.ws = null; Online.room = null; Online.status = 'connecting'; Net.peers.clear(); pushPeers(); retry(); };
   ws.onerror = () => { try { ws.close(); } catch(e){} };
 }
-function retry(){ setTimeout(connect, Net.backoff); Net.backoff = Math.min(15000, Net.backoff*1.7); }
+function retry(){ if(Online.away) return; setTimeout(connect, Net.backoff); Net.backoff = Math.min(15000, Net.backoff*1.7); }
 function pushPeers(){ syncPeers([...Net.peers].map(([id, s]) => ({ peer: id, by: null, isMe: false, sameTab: false, kind: 'viewer', guest: false, presence: s }))); }
 async function resolveNames(ids){
   const u = Online.user; if(!u || !u.profiles || !ids.length) return;
@@ -924,7 +986,7 @@ async function resolveNames(ids){
 }
 function clearRemotes(){ Online.remotes.forEach(r => scene.remove(r.h.root)); Online.remotes.clear(); }
 function updateRemoteName(r){
-  const nm = r.nick || (r.by && Online.names[r.by]) || '등산객';
+  const nm = (JOBS[r.h.job] ? JOBS[r.h.job].ic + ' ' : '') + (r.nick || (r.by && Online.names[r.by]) || '등산객');
   if(nm === r.name) return;
   if(r.tag){ r.h.root.remove(r.tag); r.tag.material.map.dispose(); r.tag.material.dispose(); }
   r.tag = nameTag(nm); r.h.root.add(r.tag); r.name = nm;
@@ -939,10 +1001,16 @@ function syncPeers(peers){
     seen.add(p.peer);
     let r = Online.remotes.get(p.peer);
     if(!r){
-      const h = makeHiker({ jacket: JACKETS[0], pants: 0x3b4a5a, hat: 0xf4efe4, pack: 0x4f7c6a });
+      const h = makeHiker({ jacket: JACKETS[0], pants: 0x3b4a5a, hat: 0xf4efe4, pack: 0x4f7c6a, job: JOBS[pr.j] ? pr.j : 'hiker' });
       r = { h, x: pr.x, z: pr.z, f: +pr.f || 0, c: -1, name: '', tag: null, et: pr.et, bubble: makeBubble() };
       h.root.add(r.bubble); Online.remotes.set(p.peer, r);
     } else if(pr.et !== r.et){ r.et = pr.et; emoteOn(r.h, r.bubble, String(pr.e || '')); }
+    const pj = JOBS[pr.j] ? pr.j : 'hiker';
+    if(r.h.job !== pj){
+      scene.remove(r.h.root); r.h.root.remove(r.bubble);
+      r.h = makeHiker({ jacket: JACKETS[r.c < 0 ? 0 : r.c], job: pj }); r.h.root.add(r.bubble);
+      if(r.tag){ r.h.root.add(r.tag); }
+    }
     r.tx = clamp(pr.x, -260, 260); r.tz = clamp(pr.z, -260, 260); r.tf = isFinite(+pr.f) ? +pr.f : 0;
     r.v = clamp(+pr.v || 0, 0, 8); r.el = clamp(+pr.el || 0, 0, 2000); r.tr = clamp(+pr.tr || 0, 0, 8) | 0; r.by = p.by;
     const ci = Math.abs(pr.c | 0) % JACKETS.length; if(r.c !== ci){ r.c = ci; r.h.jacketMat.color.setHex(JACKETS[ci]); }
@@ -965,7 +1033,7 @@ function updateRemotes(dt, t){
 function sendPresence(dt){
   if(!Online.room || !started) return;
   Online.sendT -= dt; if(Online.sendT > 0) return; Online.sendT = 0.1;
-  const o = { x: +px.toFixed(2), z: +pz.toFixed(2), f: +facing.toFixed(2), v: +player.spd.toFixed(1), c: myColor, n: myName, e: Online.emote, et: Online.emoteAt, el: ELEV(py), tr: tFoundNow, mt: M.id };
+  const o = { x: +px.toFixed(2), z: +pz.toFixed(2), f: +facing.toFixed(2), v: +player.spd.toFixed(1), c: myColor, n: myName, e: Online.emote, et: Online.emoteAt, el: ELEV(py), tr: tFoundNow, mt: M.id, j: myJob };
   const key = JSON.stringify(o); if(key === Online.sentKey) return;
   Online.sentKey = key; Online.room.presence(o).catch(() => {});
 }
@@ -985,7 +1053,7 @@ function updatePlayers(dt){
   const others = [...Online.remotes.values()];
   head.textContent = '[' + ROOM_LABEL + '] ' + (Online.status === 'offline' ? '혼자 걷는 중 (서버 없음)' : others.length ? '함께 걷는 사람 ' + (others.length + 1) + '명' : (Online.status === 'online' ? '아직 나 혼자예요' : '연결 중…'));
   el.appendChild(head);
-  row(JACKETS[myColor], myName + ' (나)', ELEV(py), tFoundNow);
+  row(JACKETS[myColor], JOBS[myJob].ic + ' ' + myName + ' (나)', ELEV(py), tFoundNow);
   others.sort((a,b) => b.el - a.el).slice(0, 7).forEach(r => row(JACKETS[r.c < 0 ? 0 : r.c], r.name, r.el, r.tr));
   if(others.length > 7){ const m = document.createElement('div'); m.className = 'head'; m.textContent = '외 ' + (others.length - 7) + '명'; el.appendChild(m); }
 }
@@ -1269,10 +1337,13 @@ function updatePlayer(dt, t){
   }
 }
 
+let viewShifted = false;
 function updateCamera(dt){
-  const tx = px, ty = py + 1.5, tz = pz;
-  const cp = Math.cos(pitch), sp = Math.sin(pitch);
-  let cx = tx - Math.sin(yaw)*cp*dist, cy = ty + sp*dist, cz = tz - Math.cos(yaw)*cp*dist;
+  const pv = !started, D = pv ? 8.5 : dist, P = pv ? 0.1 : pitch;
+  if(pv !== viewShifted){ viewShifted = pv; if(pv) camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight*0.27, innerWidth, innerHeight); else camera.clearViewOffset(); }
+  const tx = px, ty = py + (pv ? 1.05 : 1.5), tz = pz;
+  const cp = Math.cos(P), sp = Math.sin(P);
+  let cx = tx - Math.sin(yaw)*cp*D, cy = ty + sp*D, cz = tz - Math.cos(yaw)*cp*D;
   const gh = height(cx,cz) + 0.9; if(cy < gh) cy = gh;
   if(!camInit){ camera.position.set(cx,cy,cz); camTarget.set(tx,ty,tz); camInit = true; }
   const k = 1 - Math.exp(-dt*7);
@@ -1333,7 +1404,23 @@ joyEl.addEventListener('pointerup', joyEnd); joyEl.addEventListener('pointercanc
 if(isTouch) joyEl.classList.remove('hidden');
 addEventListener('touchstart', () => joyEl.classList.remove('hidden'), { once: true, passive: true });
 
-try { const sv = JSON.parse(localStorage.getItem('sanhaeng2') || '{}'); if(sv.n) $('nick').value = cleanName(sv.n); if(sv.c >= 0 && sv.c < JACKETS.length) myColor = sv.c; } catch(e){}
+try { const sv = JSON.parse(localStorage.getItem('sanhaeng2') || '{}'); if(sv.n) $('nick').value = cleanName(sv.n); if(sv.c >= 0 && sv.c < JACKETS.length) myColor = sv.c; if(JOBS[sv.j]) myJob = sv.j; } catch(e){}
+function setPlayerJob(job){
+  myJob = JOBS[job] ? job : 'hiker';
+  document.querySelectorAll('#jobs .job').forEach(b => b.classList.toggle('sel', b.dataset.j === myJob));
+  if(!player || player.job === myJob) return;
+  const old = player; scene.remove(old.root);
+  player = makeHiker({ jacket: JACKETS[myColor], job: myJob });
+  if(myBubble){ old.root.remove(myBubble); player.root.add(myBubble); }
+  player.root.position.copy(old.root.position); player.root.rotation.y = old.root.rotation.y;
+  Online.sentKey = '';
+}
+JOB_IDS.forEach(id => {
+  const b = document.createElement('button'); b.className = 'job' + (id === myJob ? ' sel' : ''); b.dataset.j = id;
+  b.textContent = JOBS[id].ic + ' ' + JOBS[id].name;
+  b.addEventListener('click', () => setPlayerJob(id));
+  $('jobs').appendChild(b);
+});
 JACKETS.forEach((c, i) => {
   const b = document.createElement('button'); b.className = 'swatch' + (i === myColor ? ' sel' : ''); b.style.background = '#' + c.toString(16).padStart(6, '0');
   b.setAttribute('aria-label', '옷 색 ' + (i+1));
@@ -1357,7 +1444,8 @@ $('btnAuto').addEventListener('click', () => setAuto(!auto));
 $('btnSound').addEventListener('click', () => { const on = Sound.toggle(); $('btnSound').innerHTML = on ? ICON_ON : ICON_OFF; });
 $('btnHelp').addEventListener('click', () => $('help').classList.remove('hidden'));
 $('btnHelpClose').addEventListener('click', () => $('help').classList.add('hidden'));
-$('btnOther').addEventListener('click', showStartScreen);
+$('btnOther').addEventListener('click', () => showStartScreen(true));
+$('btnExit').addEventListener('click', () => { $('help').classList.add('hidden'); $('tbook').classList.add('hidden'); showStartScreen(false); });
 $('btnStay').addEventListener('click', () => $('summit').classList.add('hidden'));
 $('btnRestart').addEventListener('click', () => { $('summit').classList.add('hidden'); resetToStart(); resetTreasures(); toast('다시 입구에서 시작해요. 보물도 다시 숨었어요'); });
 $('btnStart').addEventListener('click', () => {
@@ -1365,12 +1453,14 @@ $('btnStart').addEventListener('click', () => {
   const s = $('start'); s.style.opacity = '0'; s.style.pointerEvents = 'none'; setTimeout(() => s.classList.add('hidden'), 1200);
   $('hud').classList.remove('hidden');
   myName = cleanName($('nick').value) || randomNick(); $('nick').blur();
-  try { localStorage.setItem('sanhaeng2', JSON.stringify({ n: myName, c: myColor })); } catch(e){}
+  try { localStorage.setItem('sanhaeng2', JSON.stringify({ n: myName, c: myColor, j: myJob })); } catch(e){}
   player.jacketMat.color.setHex(JACKETS[myColor]);
-  started = true; startTime = clock; yaw = facing;
-  setTimeout(() => toast(isTouch ? '왼쪽 아래를 밀어 걷거나, ‘길 따라 걷기’를 눌러요' : 'WASD로 걷거나, ‘길 따라 걷기’를 눌러요 (F)', 5), 1400);
+  const resumed = resumeOk; resumeOk = false;
+  started = true; if(!resumed){ startTime = clock; } yaw = facing; camInit = false;
+  goBack();
+  if(resumed){ setTimeout(() => toast('다시 ' + M.name + '에 들어왔어요', 3), 900); } else setTimeout(() => toast(isTouch ? '왼쪽 아래를 밀어 걷거나, ‘길 따라 걷기’를 눌러요' : 'WASD로 걷거나, ‘길 따라 걷기’를 눌러요 (F)', 5), 1400);
 });
-addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; viewShifted = !viewShifted && false; if(!started) camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight*0.27, innerWidth, innerHeight); camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
 /* ---------- main loop ---------- */
 let clock = 0, last = performance.now();
@@ -1382,7 +1472,7 @@ function frame(now){
   U.uTime.value = clock; U.uWind.value = 0.45 + 1.7*g;
   Sound.update(g);
   if(started) updatePlayer(dt, clock);
-  else { yaw += dt*0.05; animHiker(player, dt, 0, clock); player.root.position.set(px,py,pz); player.root.rotation.y = facing; }
+  else { yaw += dt*0.06; animHiker(player, dt, 0, clock); player.root.position.set(px,py,pz); player.root.rotation.y = yaw + Math.PI; }
   updateNPCs(dt, clock);
   updateTreasures(dt, clock); updateAnimals(dt, clock);
   updateRemotes(dt, clock); tickBubble(myBubble, dt); sendPresence(dt);
@@ -1415,6 +1505,7 @@ function loadMountain(id){
   M = MT_BY_ID[id] || MOUNTAINS[0];
   try { localStorage.setItem('sanhaeng-mt', M.id); } catch(e){}
   seed = M.seed * 7919 + 1;
+  resumeOk = false;
   clearWorld(); genPath(); buildWorld(); buildTreasures();
   try { tBook = JSON.parse(localStorage.getItem('sanhaeng-treasure-' + M.id) || '{}') || {}; } catch(e){ tBook = {}; }
   tFoundNow = 0; tNewIds.clear(); refreshTreasureHUD();
@@ -1443,28 +1534,30 @@ function switchMountain(id){
   const btn = $('btnStart'); btn.disabled = true; btn.textContent = '산으로 가는 중…';
   setTimeout(() => { loadMountain(id); btn.disabled = false; btn.textContent = M.name + ' 오르기'; }, 30);
 }
-function showStartScreen(){
-  resetToStart(); resetTreasures();
+let resumeOk = false;
+function showStartScreen(reset){
+  if(reset){ resetToStart(); resetTreasures(); resumeOk = false; } else resumeOk = true;
+  goAway();
   pollCounts();
   started = false; setAuto(false); hideAnimal();
   $('summit').classList.add('hidden'); $('hud').classList.add('hidden');
   const s = $('start'); s.classList.remove('hidden'); s.style.pointerEvents = ''; requestAnimationFrame(() => s.style.opacity = '1');
-  $('btnStart').textContent = M.name + ' 오르기';
+  $('btnStart').textContent = M.name + (resumeOk ? ' 다시 들어가기' : ' 오르기');
 }
 
 /* ---------- boot ---------- */
 function boot(){
   buildLeaves();
-  player = makeHiker({ jacket: JACKETS[myColor], pants: 0x3b4a5a, hat: 0xf2c14e, pack: 0x4f7c6a });
+  player = makeHiker({ jacket: JACKETS[myColor], pants: 0x3b4a5a, hat: 0xf2c14e, pack: 0x4f7c6a, job: myJob });
   const npcDefs = [
     { name: '산들',   jacket: 0x5b8fd1, pants: 0x46505a, hat: 0xf4efe4, pack: 0xc9604a, speed: 2.1, s: 0.18 },
-    { name: '솔바람', jacket: 0x8e6bbf, pants: 0x3a3f4a, hat: 0x6f9a4f, pack: 0xe0b347, speed: 1.7, s: 0.45 },
-    { name: '다람쥐', jacket: 0xe3b23c, pants: 0x5a4636, hat: 0xd65a4a, pack: 0x3f6a8a, speed: 2.4, s: 0.7 }
+    { name: '솔바람', job: 'ranger', jacket: 0xe2463c, pants: 0x3a3f4a, hat: 0x6f9a4f, pack: 0xe0b347, speed: 1.7, s: 0.45 },
+    { name: '다람쥐', job: 'influencer', jacket: 0xd8608f, pants: 0x5a4636, hat: 0xd65a4a, pack: 0x3f6a8a, speed: 2.4, s: 0.7 }
   ];
   npcs = npcDefs.map((d,i) => { const h = makeHiker(d); h.root.add(nameTag(d.name)); return { h, speed: d.speed, s: 0, frac: d.s, off: i%2 ? 0.75 : -0.75, rest: 0 }; });
   myBubble = makeBubble(); player.root.add(myBubble);
   loadMountain(initialMountain());
-  initOnline(); pollCounts();
+  pollCounts();
   const b = $('btnStart'); b.disabled = false; b.textContent = M.name + ' 오르기';
   requestAnimationFrame(frame);
 }
