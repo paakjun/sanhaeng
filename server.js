@@ -41,6 +41,7 @@ function sanitize(s) {
     c: Math.abs(num(s.c, 0, 99) | 0) % 6,
     n: String(s.n || '').replace(/[\u0000-\u001f\u007f​-‏‪-‮⁠-⁯﻿<>]/g, '').trim().slice(0, 10),
     e: EMOTES.has(s.e) ? s.e : '', et: num(s.et, 0, 1e15),
+    tr: num(s.tr, 0, 8) | 0,
   };
 }
 const send = (ws, m) => { if (ws.readyState === 1) ws.send(JSON.stringify(m)); };
