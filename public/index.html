@@ -123,6 +123,8 @@
   #btnAct:disabled { background:#9a8f80; animation:none; }
   @keyframes pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.06); } }
   #btnDrink { position:absolute; right:18px; bottom:284px; pointer-events:auto; border:none; cursor:pointer; padding:13px 18px; border-radius:999px; font-family:inherit; font-size:15px; color:#fff; background:#3f86a8; box-shadow:0 6px 20px rgba(20,60,80,0.3); }
+  #btnClimb { position:absolute; right:18px; bottom:284px; pointer-events:auto; border:none; cursor:pointer; padding:13px 18px; border-radius:999px; font-family:inherit; font-size:15px; color:#fff; background:#7a5a3a; box-shadow:0 6px 20px rgba(60,40,20,0.3); animation:pulse 1.6s ease-in-out infinite; }
+  #btnClimbDown { position:absolute; left:50%; bottom:96px; transform:translateX(-50%); pointer-events:auto; border:none; cursor:pointer; padding:13px 26px; border-radius:999px; font-family:inherit; font-size:15px; color:var(--ink); background:rgba(250,246,236,0.88); box-shadow:0 6px 20px rgba(40,50,35,0.15); }
   #btnRest { position:absolute; right:18px; bottom:284px; pointer-events:auto; border:none; cursor:pointer; padding:13px 18px; border-radius:999px;
              font-family:inherit; font-size:15px; color:#fff; background:#4f6b45; box-shadow:0 6px 20px rgba(30,50,25,0.3); }
   #btnStand { position:absolute; left:50%; bottom:34px; transform:translateX(-50%); pointer-events:auto; border:none; cursor:pointer; padding:13px 26px; border-radius:999px;
@@ -154,6 +156,24 @@
   #todChip.sunrise { background:#f0a066; color:#3a2210; }
   #todStart { margin-top:10px; font-size:13px; opacity:.95; text-shadow:0 2px 8px rgba(20,30,20,0.5); }
   #todStart button { margin-left:6px; border:none; border-radius:999px; padding:5px 12px; font-family:inherit; font-size:12.5px; cursor:pointer; background:rgba(250,246,236,0.85); color:#5a3418; box-shadow:none; }
+  #summit .sheet { max-height:92vh; overflow-y:auto; }
+  #starRow { display:flex; justify-content:center; gap:10px; margin:10px 0 4px; }
+  #starRow .st { display:flex; flex-direction:column; align-items:center; font-size:11.5px; opacity:.45; width:84px; }
+  #starRow .st b { font-size:26px; line-height:1.2; color:#c9a227; }
+  #starRow .st.on { opacity:1; }
+  #starRow .st.new b { animation:starPop .8s ease-out; }
+  @keyframes starPop { 0% { transform:scale(0.2) rotate(-40deg); } 70% { transform:scale(1.35) rotate(8deg); } 100% { transform:scale(1); } }
+  #titleLine { font-family:"Gowun Batang", serif; font-size:15px; margin:6px 0 8px; color:#7a4a1c; }
+  #certImg { width:100%; border-radius:12px; box-shadow:0 4px 16px rgba(40,50,35,0.15); margin-top:4px; -webkit-touch-callout:default; user-select:auto; -webkit-user-select:auto; }
+  #start .mt .medal { color:#ffd27a; margin-top:2px; letter-spacing:1px; }
+  #start .mt.sel .medal { color:#b4532c; }
+  #loot { position:absolute; left:50%; top:24%; transform:translate(-50%, 10px) scale(0.9); display:flex; align-items:center; gap:12px; padding:10px 18px 10px 10px; border-radius:20px;
+          background:rgba(250,246,236,0.92); box-shadow:0 10px 30px rgba(60,40,10,0.25); opacity:0; pointer-events:none; transition:opacity .4s, transform .4s; }
+  #loot.show { opacity:1; transform:translate(-50%, 0) scale(1); }
+  #loot img { width:76px; height:76px; border-radius:50%; }
+  #loot b { display:block; font-family:"Gowun Batang", serif; font-size:16px; }
+  #loot span { font-size:12.5px; opacity:.75; }
+  .titem img.ic { width:64px; height:64px; border-radius:50%; display:block; }
 </style>
 </head>
 <body>
@@ -177,6 +197,8 @@
   <button id="btnAct" class="hidden"></button>
   <button id="btnRest" class="hidden">🪑 앉아서 쉬기</button>
   <button id="btnDrink" class="hidden">💧 약수 마시기</button>
+  <button id="btnClimb" class="hidden">🧗 암벽 오르기</button>
+  <button id="btnClimbDown" class="hidden">⬇ 내려가기</button>
   <button id="btnStand" class="hidden">일어나기</button>
   <div id="restMsg"></div>
   <div id="emotes">
@@ -191,6 +213,7 @@
   </button>
   <div id="joy" class="hidden"><div id="knob"></div></div>
   <div id="toast"></div>
+  <div id="loot"><img id="lootImg" alt=""><div><b id="lootName"></b><span id="lootSub"></span></div></div>
 </div>
 
 <div id="start">
@@ -215,6 +238,10 @@
     <h2>정상이에요</h2>
     <p id="summitText">수고했어요.</p>
     <p id="summitTreasure" style="font-size:14px;opacity:.8"></p>
+    <div id="starRow"></div>
+    <div id="titleLine"></div>
+    <img id="certImg" alt="정상 인증서">
+    <p id="certHint" style="font-size:12px;opacity:.65;margin:4px 0 0"></p>
     <div class="row">
       <button id="btnStay" class="primary">조금 더 머물기</button>
       <button id="btnRestart">처음부터 다시 오르기</button>
@@ -225,8 +252,8 @@
 
 <div id="tbook" class="modal hidden">
   <div class="sheet">
-    <h2>보물 수첩</h2>
-    <p id="tbookSub" style="font-size:13px;opacity:.75;margin:0">등산로 옆 반짝이는 곳을 찾아보세요</p>
+    <h2>명품(?) 수첩</h2>
+    <p id="tbookSub" style="font-size:13px;opacity:.75;margin:0">등산로 옆에 누가 명품을 흘리고 갔어요</p>
     <div class="tgrid" id="tgrid"></div>
     <div class="row"><button id="btnTbookClose" class="primary">닫기</button></div>
   </div>
@@ -243,12 +270,14 @@
       <li>‘길 따라 걷기’를 켜면 알아서 등산로를 따라 올라가요</li>
       <li>왼쪽 아래 🏃 버튼으로 달리기를 켜고 끌 수 있어요 (PC는 Shift). 오래 달리면 숨이 차요</li>
       <li>🌅 하늘과 해는 지금 한국 시간(KST) 그대로 바뀌어요. 시간 표시를 누르면 일출을 미리 볼 수 있어요</li>
+      <li>🧗 바윗길의 밧줄 걸린 암벽에 가까이 가면 ‘암벽 오르기’로 올라갈 수 있어요</li>
+      <li>⭐ 정상에 오르면 별(정상 · 보물 8개 · 암벽 또는 약수)과 배지, 칭호, 등정 인증서를 받아요</li>
       <li>💧 약수터에서 물을 마시면 달리기 체력이 다시 가득 차요</li>
       <li>⚠️ 가끔 산사태가 나요. 우르릉 소리가 나면 옆으로 달려 피하세요. 휩쓸리면 지난 쉼터에서 다시 시작해요</li>
       <li>쉼터 벤치 가까이에서 ‘🪑 앉아서 쉬기’를 누르면 앉아서 경치를 볼 수 있어요</li>
       <li>오른쪽 위 문 버튼으로 산에서 나갔다가, 다시 들어오면 있던 자리에서 이어서 걸어요</li>
       <li>걷다 보면 다람쥐·산토끼·고라니·꿩이 튀어나와요. 가까이 가면 놀라서 달아나요</li>
-      <li>길옆 어딘가에 보물 8개가 숨어 있어요. 반짝이는 곳으로 가까이 가면 주워져요</li>
+      <li>길옆 어딘가에 누군가 흘린 명품(?) 액세서리 8개가 있어요. 반짝이는 곳으로 가까이 가면 주워져요</li>
     </ul>
     <h3>함께 걷기</h3>
     <ul>
@@ -723,7 +752,7 @@ let _rg2 = null; function rockGeo2Global(){ if(!_rg2){ _rg2 = new THREE.Icosahed
 let world = null, groundMesh = null;
 let summitPos, summitY;
 
-let restSpots = [], springSpots = [];
+let restSpots = [], springSpots = [], climbSpots = [], climbs = [];
 function makeDipper(color){
   const g = new THREE.Group(), M2 = new THREE.MeshStandardMaterial({ color, roughness: 0.45, side: THREE.DoubleSide });
   const cup = new THREE.Mesh(latheSmooth([[0.001,0.0],[0.1,0.0],[0.13,0.03],[0.145,0.13],[0.15,0.15]], 24, 12), M2); cup.rotation.x = Math.PI/2; cup.position.set(0, -0.17, -0.05); g.add(cup);
@@ -733,6 +762,11 @@ function makeDipper(color){
   return g;
 }
 function computeRestSpots(){
+  climbSpots = [];
+  { let last = -999; for(let s2 = total*0.05; s2 < total*0.95 && climbSpots.length < 2; s2 += 3){
+      if(sectionAt(s2) !== 'rock' || s2 - last < total*0.18) continue;
+      const p = pointAt(s2); let ix = -p.x, iz = -p.z; const L = Math.hypot(ix, iz) || 1; ix /= L; iz /= L;
+      climbSpots.push({ x: p.x + ix*5.6, z: p.z + iz*5.6, ix, iz, s: s2 }); last = s2; } }
   springSpots = [0.17, 0.69].map(f => {
     const p = pointAt(total*f); let ix = -p.x, iz = -p.z; const L = Math.hypot(ix, iz) || 1; ix /= L; iz /= L;
     return { x: p.x + ix*4.0, z: p.z + iz*4.0, ix, iz, f };
@@ -744,6 +778,7 @@ function computeRestSpots(){
   });
 }
 function blocksView(x, z){
+  for(const c of climbSpots) if(Math.hypot(x - c.x, z - c.z) < 7) return true;
   for(const w of springSpots) if(Math.hypot(x - w.x, z - w.z) < 5) return true;
   for(const r of restSpots){
     const dx = x - r.x, dz = z - r.z, d = Math.hypot(dx, dz);
@@ -933,6 +968,27 @@ function buildWorld(){
       }
     }
   }
+  /* 🧗 암벽: a climbable rock wall with a rope */
+  climbs.length = 0;
+  climbSpots.forEach((c, ci) => {
+    const gy = height(c.x, c.z) - 0.2, TOP = 4.6, g = new THREE.Group(); g.position.set(c.x, gy, c.z); g.rotation.y = Math.atan2(-c.ix, -c.iz);
+    const bg = new THREE.BoxGeometry(3.4, TOP, 2.8, 5, 7, 5); bg.translate(0, TOP/2, 0); jitterGeo(bg, 0.28, 1.4, 50 + ci);
+    const bp = bg.attributes.position; for(let i=0;i<bp.count;i++){ if(bp.getY(i) > TOP - 0.25) bp.setY(i, TOP); if(bp.getY(i) < 0) bp.setY(i, -0.3); }
+    bg.computeVertexNormals();
+    const wall = new THREE.Mesh(mergeParts([{ geo: bg, color: (x, y, z, nx, ny) => { const m = smoothstep(0.6, 0.95, ny)*0.6, v = 0.66 + (vnoise(x*2.3, y*2.1 + z) - 0.5)*0.22; return [v*(1-m) + 0.4*m, v*(1-m) + 0.52*m, v*(1-m) + 0.3*m]; } }]),
+      new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true }));
+    wall.castShadow = true; wall.receiveShadow = true; g.add(wall);
+    const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, TOP + 0.2, 8), new THREE.MeshStandardMaterial({ color: 0xd9b46a, roughness: 0.9 }));
+    rope.position.set(0.35, TOP/2, 1.55); rope.rotation.x = -0.06; rope.castShadow = true; g.add(rope);
+    const bolt = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.025, 6, 14), new THREE.MeshStandardMaterial({ color: 0x8c8c8c, metalness: 0.6, roughness: 0.4 }));
+    bolt.position.set(0.35, TOP + 0.02, 1.3); bolt.rotation.x = Math.PI/2; g.add(bolt);
+    for(let k=0;k<4;k++){ const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28 - k*0.05, 0), new THREE.MeshStandardMaterial({ color: 0x8f8c82, roughness: 1, flatShading: true })); st.scale.y = 0.55; st.position.set(-0.8, TOP + 0.12 + k*0.17, -0.5); g.add(st); }
+    world.add(g); g.updateMatrixWorld(true);
+    const w = (x, y, z) => new THREE.Vector3(x, y, z).applyMatrix4(g.matrixWorld);
+    const base = w(0.35, 0, 2.15); base.y = height(base.x, base.z);
+    climbs.push({ base, edge: w(0.35, gy - gy + TOP, 1.25), top: w(0.1, TOP, 0.2), rot: g.rotation.y, done: false, near: false });
+  });
+
   /* 계곡: a stream crossing the trail with stepping stones */
   streams.length = 0;
   { const C = COURSES[M.id];
@@ -1245,6 +1301,13 @@ function animHiker(h, dt, spd, t){
   h.armL.rotation.x = -sw*0.8; h.armR.rotation.x = sw*0.8;
   h.upper.position.y = 0.62 + Math.abs(Math.sin(h.phase))*0.05*amt + Math.sin(t*2)*0.006;
   h.armR.rotation.z = 0.12; h.armL.rotation.z = -0.12;
+  if(h.climbing){
+    h.climbPh = (h.climbPh || 0) + dt*5;
+    const a = Math.sin(h.climbPh);
+    h.armL.rotation.x = -2.6 + a*0.45; h.armR.rotation.x = -2.6 - a*0.45; h.armL.rotation.z = -0.1; h.armR.rotation.z = 0.1;
+    h.legL.rotation.x = -0.6 - Math.max(0, a)*0.7; h.legR.rotation.x = -0.6 - Math.max(0, -a)*0.7;
+    h.upper.position.y = 0.62;
+  }
   if(h.sitting){
     h.legL.rotation.x = -1.2; h.legR.rotation.x = -1.2;
     h.armL.rotation.x = -0.45; h.armR.rotation.x = -0.45; h.armL.rotation.z = -0.25; h.armR.rotation.z = 0.25;
@@ -1335,11 +1398,13 @@ const Sound = {
     wsrc.connect(wbp); wbp.connect(wlp); wlp.connect(this.waterGain); this.waterGain.connect(this.master);
     // birds bus with a soft forest echo
     this.birds = ctx.createGain(); this.birds.gain.value = 1; this.birds.connect(this.master);
-    const delay = ctx.createDelay(1.0); delay.delayTime.value = 0.21;
-    const fb = ctx.createGain(); fb.gain.value = 0.28;
-    const dl = ctx.createBiquadFilter(); dl.type = 'lowpass'; dl.frequency.value = 2600;
-    this.send = ctx.createGain(); this.send.gain.value = 0.35;
-    this.send.connect(delay); delay.connect(dl); dl.connect(fb); fb.connect(delay); dl.connect(this.master);
+    // natural forest reverb (generated impulse response)
+    const irLen = Math.floor(sr*2.6), ir = ctx.createBuffer(2, irLen, sr);
+    for(let ch=0; ch<2; ch++){ const d = ir.getChannelData(ch); let lp = 0; for(let i=0;i<irLen;i++){ const x = Math.random()*2 - 1; lp += (x - lp)*0.35; d[i] = lp*Math.pow(1 - i/irLen, 3.2)*(i < sr*0.012 ? i/(sr*0.012) : 1); } }
+    const conv = ctx.createConvolver(); conv.buffer = ir;
+    const wet = ctx.createGain(); wet.gain.value = 0.55;
+    this.send = ctx.createGain(); this.send.gain.value = 0.6;
+    this.send.connect(conv); conv.connect(wet); wet.connect(this.master);
 
     const next = () => { if(!this.ctx) return; this.bird(); setTimeout(next, 1400 + Math.random()*4800); };
     setTimeout(next, 1500);
@@ -1356,26 +1421,52 @@ const Sound = {
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.02, dur*0.25)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.05);
   },
+  // a softer, more natural bird note: pitch curve + gentle envelope + faint harmonic
+  note(t, curve, dur, vol, dest, opt){
+    const ctx = this.ctx, o = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain(), g2 = ctx.createGain(), bp = ctx.createBiquadFilter();
+    o.type = 'sine'; o2.type = 'sine';
+    const fc = new Float32Array(curve.length), fc2 = new Float32Array(curve.length);
+    curve.forEach((f, i) => { fc[i] = f; fc2[i] = f*2; });
+    o.frequency.setValueCurveAtTime(fc, t, dur); o2.frequency.setValueCurveAtTime(fc2, t, dur);
+    const vib = ctx.createOscillator(), vg = ctx.createGain(); vib.frequency.value = (opt && opt.vib) || 0; vg.gain.value = (opt && opt.vibAmt) || 0; vib.connect(vg); vg.connect(o.frequency);
+    bp.type = 'bandpass'; bp.frequency.value = curve[Math.floor(curve.length/2)]; bp.Q.value = 0.8;
+    const atk = (opt && opt.atk) || Math.min(0.03, dur*0.3);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + atk); g.gain.setTargetAtTime(0, t + dur - Math.min(0.06, dur*0.45), Math.min(0.03, dur*0.2));
+    g2.gain.value = (opt && opt.harm) || 0.12;
+    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(bp); bp.connect(dest);
+    o.start(t); o2.start(t); vib.start(t); const end = t + dur + 0.2; o.stop(end); o2.stop(end); vib.stop(end);
+  },
+  // 소쩍새: "소쩍… 소쩍다"
+  sojjeok(t, dest, vol){
+    const reps = 3 + Math.floor(Math.random()*4), f0 = rr(1060, 1220), third = Math.random() < 0.45;
+    for(let r=0;r<reps;r++){
+      this.note(t, [f0*0.94, f0, f0*1.02, f0*0.98], 0.15, vol, dest, { atk: 0.035, harm: 0.08, vib: 7, vibAmt: 8 });
+      this.note(t + 0.22, [f0*1.08, f0*1.1, f0*1.02, f0*0.9], 0.11, vol*0.9, dest, { atk: 0.02, harm: 0.08 });
+      if(third && r % 2 === 1) this.note(t + 0.4, [f0*1.02, f0*0.98, f0*0.9], 0.09, vol*0.7, dest, { atk: 0.02, harm: 0.06 });
+      t += rr(1.5, 1.9);
+    }
+  },
   bird(){
     const ctx = this.ctx; if(!ctx || ctx.state !== 'running') return;
-    if(TOD.night > 0.5 && Math.random() < 0.85) return;
-    let t = ctx.currentTime + 0.05; const pan = rr(-0.85, 0.85), dest = this.out(pan), v = rr(0.025, 0.07);
+    const nightK = TOD.night, duskK = TOD.warm;
+    let t = ctx.currentTime + 0.05; const pan = rr(-0.85, 0.85), dest = this.out(pan), v = rr(0.02, 0.05);
+    const pSojjeok = 0.32 + 0.5*Math.max(nightK, duskK*0.8);
     const kind = Math.random();
-    if(kind < 0.3){            // 삐-요 (two-note call)
-      const reps = 1 + Math.floor(Math.random()*3), f = rr(0.9, 1.15);
-      for(let r=0;r<reps;r++){ this.chirp(t, 3300*f, 2600*f, 0.13, v, dest); this.chirp(t+0.17, 4200*f, 3000*f, 0.2, v*0.9, dest); t += rr(0.55, 0.8); }
-    } else if(kind < 0.55){    // 쯔삐 쯔삐 (tit-like)
-      const reps = 3 + Math.floor(Math.random()*3), f = rr(0.92, 1.1);
-      for(let r=0;r<reps;r++){ this.chirp(t, 5200*f, 4900*f, 0.07, v*0.8, dest); this.chirp(t+0.09, 3600*f, 3300*f, 0.11, v*0.8, dest); t += 0.27; }
-    } else if(kind < 0.85){    // warbling song
-      const n = 7 + Math.floor(Math.random()*8), base = rr(2600, 3600);
-      for(let i=0;i<n;i++){ const d = rr(0.05, 0.12), f = base*rr(0.8, 1.35); this.chirp(t, f, f*rr(0.85, 1.2), d, v*rr(0.6,1), dest); t += d + rr(0.015, 0.06); }
-    } else if(kind < 0.95){    // 산비둘기 구-구 (far, soft)
-      const vv = v*0.6;
-      this.chirp(t, 540, 500, 0.24, vv, dest); this.chirp(t+0.38, 610, 520, 0.42, vv, dest); this.chirp(t+0.95, 520, 490, 0.22, vv, dest); this.chirp(t+1.22, 520, 485, 0.24, vv, dest);
-    } else {                   // distant woodpecker
+    if(kind < pSojjeok){ this.sojjeok(t, dest, v*1.1); return; }
+    if(nightK > 0.6) return;
+    const k2 = Math.random();
+    if(k2 < 0.3){            // 박새: 쯔빗 쯔빗 (soft)
+      const reps = 3 + Math.floor(Math.random()*3), f = rr(0.92, 1.08);
+      for(let r=0;r<reps;r++){ this.note(t, [5000*f, 4800*f, 4600*f], 0.08, v*0.55, dest); this.note(t + 0.1, [3500*f, 3300*f, 3150*f], 0.12, v*0.55, dest); t += 0.3; }
+    } else if(k2 < 0.55){    // 직박구리: 삐이-요
+      const f = rr(0.9, 1.1);
+      for(let r=0;r<1+Math.floor(Math.random()*2);r++){ this.note(t, [2600*f, 3200*f, 3400*f, 3000*f], 0.22, v*0.6, dest, { vib: 25, vibAmt: 60 }); this.note(t + 0.28, [3600*f, 3300*f, 2700*f], 0.25, v*0.5, dest, { vib: 25, vibAmt: 50 }); t += rr(0.9, 1.3); }
+    } else if(k2 < 0.8){     // 멧비둘기: 구구- 구구
+      const vv = v*0.75, f = rr(0.95, 1.05);
+      [[0, 0.24], [0.36, 0.42], [1.0, 0.2], [1.25, 0.24]].forEach(([d, len]) => this.note(t + d, [500*f, 560*f, 520*f, 470*f], len, vv, dest, { atk: 0.06, harm: 0.25 }));
+    } else {                 // 딱따구리 (멀리서)
       const n = 12 + Math.floor(Math.random()*8);
-      for(let i=0;i<n;i++) this.tap(t + i*0.055, v*0.5*(1 - i/n*0.5), dest);
+      for(let i=0;i<n;i++) this.tap(t + i*0.055, v*0.45*(1 - i/n*0.5), dest);
     }
   },
   tap(t, vol, dest){
@@ -1421,6 +1512,15 @@ const Sound = {
     });
     this.chime();
   },
+  fanfare(){
+    const ctx = this.ctx; if(!ctx || !this.on) return;
+    const t = ctx.currentTime + 0.1;
+    [[523, 0], [659, 0.16], [784, 0.32], [1047, 0.52]].forEach(([f, d]) => {
+      [1, 2.76].forEach((m, k) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = f*m;
+        const st = t + d, vol = k ? 0.012 : 0.05; g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(vol, st + 0.006); g.gain.setTargetAtTime(0, st + 0.02, k ? 0.08 : 0.45);
+        o.connect(g); g.connect(this.master); if(this.send) g.connect(this.send); o.start(st); o.stop(st + 2.2); });
+    });
+  },
   rumble(sec){
     const ctx = this.ctx; if(!ctx || !this.on) return;
     const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = this.white; s.loop = true;
@@ -1449,18 +1549,34 @@ const Sound = {
   chime(){
     const ctx = this.ctx; if(!ctx || !this.on) return;
     const t = ctx.currentTime;
-    [1046.5, 1318.5, 1568, 2093].forEach((f, i) => {
-      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = f;
-      const st = t + i*0.09; g.gain.setValueAtTime(0.0001, st); g.gain.exponentialRampToValueAtTime(0.09, st + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, st + 1.1);
-      o.connect(g); g.connect(this.master); if(this.send) g.connect(this.send); o.start(st); o.stop(st + 1.2);
+    [[784, 0], [1175, 0.11], [1568, 0.24]].forEach(([f, d]) => {
+      [1, 2.76, 5.4].forEach((m, k) => {   // bell-like inharmonic partials
+        const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = f*m;
+        const st = t + d, vol = [0.045, 0.012, 0.004][k], dec = [0.9, 0.35, 0.15][k];
+        g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(vol, st + 0.004); g.gain.setTargetAtTime(0, st + 0.01, dec*0.35);
+        o.connect(g); g.connect(this.master); if(this.send) g.connect(this.send); o.start(st); o.stop(st + dec*2.5);
+      });
     });
   },
   footstep(){
     const ctx = this.ctx; if(!ctx || !this.on) return;
-    const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = this.white; s.playbackRate.value = rr(0.7, 1.0);
-    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = rr(650, 1100); bp.Q.value = 0.9;
-    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(rr(0.06, 0.1), t+0.012); g.gain.exponentialRampToValueAtTime(0.0001, t+0.13);
-    s.connect(bp); bp.connect(g); g.connect(this.master); s.start(t, Math.random()*3, 0.16);
+    const t = ctx.currentTime + 0.005, surf = (typeof curSection === 'string' && curSection) || 'forest';
+    const out = ctx.createGain(); out.gain.value = surf === 'rock' ? 0.85 : 1; out.connect(this.master);
+    // soft body thud
+    const th = ctx.createOscillator(), tg = ctx.createGain(); th.type = 'sine';
+    th.frequency.setValueAtTime(surf === 'stairs' ? 150 : 95, t); th.frequency.exponentialRampToValueAtTime(55, t + 0.07);
+    tg.gain.setValueAtTime(0, t); tg.gain.linearRampToValueAtTime(surf === 'stairs' ? 0.09 : 0.06, t + 0.006); tg.gain.setTargetAtTime(0, t + 0.012, 0.022);
+    th.connect(tg); tg.connect(out); th.start(t); th.stop(t + 0.15);
+    // texture grains: gravel / dry leaves / stone grit
+    const cfg = { rock:[2, 2600, 4200, 3.5, 0.025], forest:[6, 1400, 5200, 0.9, 0.022], valley:[4, 900, 2600, 1.0, 0.02], ridge:[5, 1800, 5600, 0.9, 0.02], stairs:[2, 700, 1500, 1.2, 0.015] }[surf] || [5, 1200, 4000, 1, 0.02];
+    const n = cfg[0] + Math.floor(Math.random()*2);
+    for(let i=0;i<n;i++){
+      const st = t + 0.004 + Math.random()*0.07, s = ctx.createBufferSource(); s.buffer = this.white;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = rr(cfg[1], cfg[2]); bp.Q.value = cfg[3];
+      const g = ctx.createGain(), len = rr(0.012, 0.035), vv = cfg[4]*rr(0.6, 1.4);
+      g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(vv, st + 0.002); g.gain.setTargetAtTime(0, st + 0.003, len*0.4);
+      s.connect(bp); bp.connect(g); g.connect(out); s.start(st, Math.random()*3, len + 0.05);
+    }
   },
   update(g){
     if(!this.ctx) return; const t = this.ctx.currentTime;
@@ -1596,7 +1712,7 @@ function syncPeers(peers){
     r.v = clamp(+pr.v || 0, 0, 8); r.el = clamp(+pr.el || 0, 0, 2000); r.tr = clamp(+pr.tr || 0, 0, 8) | 0; r.by = p.by;
     const ci = Math.abs(pr.c | 0) % JACKETS.length; if(r.c !== ci){ r.c = ci; r.h.jacketMat.color.setHex(JACKETS[ci]); }
     r.nick = cleanName(pr.n);
-    r.h.sitting = !!pr.si;
+    r.h.sitting = !!pr.si; r.cy = clamp(+pr.cy || 0, 0, 8); r.h.climbing = !!pr.cl;
     if(r.name) processActions(r, pr, p.peer, false);
     if(!r.nick && p.by && !Online.names[p.by]) need.push(p.by);
     updateRemoteName(r);
@@ -1609,14 +1725,14 @@ function updateRemotes(dt, t){
   Online.remotes.forEach(r => {
     if(Math.hypot(r.tx - r.x, r.tz - r.z) > 30){ r.x = r.tx; r.z = r.tz; }
     r.x += (r.tx - r.x)*k; r.z += (r.tz - r.z)*k; r.f += angDiff(r.tf, r.f)*k;
-    r.h.root.position.set(r.x, height(r.x, r.z) - (r.h.sitting ? 0.1 : 0), r.z); r.h.root.rotation.y = r.f;
+    r.h.root.position.set(r.x, height(r.x, r.z) - (r.h.sitting ? 0.1 : 0) + (r.cy || 0), r.z); r.h.root.rotation.y = r.f;
     animHiker(r.h, dt, r.v, t); tickBubble(r.bubble, dt);
   });
 }
 function sendPresence(dt){
   if(!Online.room || !started) return;
   Online.sendT -= dt; if(Online.sendT > 0) return; Online.sendT = 0.1;
-  const o = { x: +px.toFixed(2), z: +pz.toFixed(2), f: +facing.toFixed(2), v: +player.spd.toFixed(1), c: myColor, n: myName, e: Online.emote, et: Online.emoteAt, el: ELEV(py), tr: tFoundNow, mt: M.id, j: myJob, si: Rest.on ? 1 : 0 };
+  const o = { x: +px.toFixed(2), z: +pz.toFixed(2), f: +facing.toFixed(2), v: +player.spd.toFixed(1), c: myColor, n: myName, e: Online.emote, et: Online.emoteAt, el: ELEV(py), tr: tFoundNow, mt: M.id, j: myJob, si: Rest.on ? 1 : 0, cy: Climb.on ? +(py - height(px, pz)).toFixed(2) : 0, cl: Climb.on && Climb.phase !== 'top' ? 1 : 0 };
   Object.assign(o, actionsForPresence());
   const key = JSON.stringify(o); if(key === Online.sentKey) return;
   Online.sentKey = key; Online.room.presence(o).catch(() => {});
@@ -1745,28 +1861,108 @@ function updateAnimals(dt, t){
 
 /* ---------- treasure hunt (보물찾기) ---------- */
 const TREASURES = [
-  { id:'pebble',  f:0.08, ic:'🔹', name:'반짝 조약돌',      desc:'냇가에서 굴러온 듯 매끈한 돌. 손에 쥐면 따뜻해요.',          hint:'입구를 지나 얼마 안 가서' },
-  { id:'clover',  f:0.18, ic:'🍀', name:'네잎클로버',        desc:'풀숲 사이에 하나뿐인 네 잎. 오늘은 운이 좋을 거예요.',        hint:'첫 이정표 조금 전' },
-  { id:'acorn',   f:0.30, ic:'🌰', name:'다람쥐의 도토리 창고', desc:'누군가 겨울 준비를 해뒀네요. 하나만 빌려가요.',             hint:'첫 이정표를 지나서' },
-  { id:'letter',  f:0.42, ic:'💌', name:'오래된 엽서',        desc:'“여기까지 잘 왔어. 조금만 더.” 누가 남겼을까요.',            hint:'첫 쉼터를 지나서' },
-  { id:'leaf',    f:0.53, ic:'🍁', name:'단풍잎 책갈피',      desc:'가장 붉은 잎 하나. 오늘을 끼워둘게요.',                     hint:'중간 이정표 근처' },
-  { id:'duck',    f:0.63, ic:'🦆', name:'작은 나무 오리',      desc:'누가 깎아 둔 나무 오리. 등산로를 지켜보고 있었어요.',         hint:'두 번째 쉼터 조금 전' },
-  { id:'feather', f:0.76, ic:'🪶', name:'산새 깃털',          desc:'아까 노래하던 새가 떨어뜨렸나 봐요. 가볍고 보드라워요.',       hint:'세 번째 이정표 근처' },
-  { id:'star',    f:0.91, ic:'⭐', name:'정상의 별조각',      desc:'정상 가까이에서만 보이는 작은 빛. 밤하늘에서 떨어졌대요.',     hint:'정상 바로 아래' },
+  { id:'garuttie', kind:'bracelet', f:0.08, ic:'⭕', name:'갸루띠예 러브 팔찌', desc:'나사를 풀려면 전용 드라이버가 필요해요. 드라이버는 산 아래 차에 두고 왔어요.', hint:'입구를 지나 얼마 안 가서' },
+  { id:'olcoolleaf', kind:'clover', f:0.18, ic:'🍀', name:'올쿨리프 네잎 목걸이', desc:'잎이 네 개라 행운은 두 배, 가격은 열 배. 풀숲에 진짜 네잎클로버랑 섞여 있었어요.', hint:'첫 이정표 조금 전' },
+  { id:'mulgari', kind:'serpent', f:0.30, ic:'🐍', name:'물가리 뱀뱀 반지', desc:'손가락을 세 바퀴 감는 뱀. 물가가 오를 때마다 한 바퀴씩 늘어난대요.', hint:'첫 이정표를 지나서' },
+  { id:'rollacksu', kind:'watch', f:0.42, ic:'⌚', name:'롤랙수 등산 시계', desc:'300m 방수 보장! 근데 계곡 깊이는 30cm예요.', hint:'첫 쉼터를 지나서' },
+  { id:'shanelkka', kind:'pearls', f:0.53, ic:'🦪', name:'샤낼까 진주 귀걸이', desc:'돈을 낼까 말까 고민하다가 결국 산에 두고 간 귀걸이.', hint:'중간 이정표 근처' },
+  { id:'aemaesu', kind:'scarf', f:0.63, ic:'🧣', name:'애매수 실크 스카프', desc:'땀 닦기엔 애매하고 목에 두르기엔 아까운, 애매한 스카프.', hint:'두 번째 쉼터 조금 전' },
+  { id:'ttippani', kind:'heart', f:0.76, ic:'💙', name:'띠빠니 하트 목걸이', desc:'꺼낼 때 “띠빠~니!” 소리가 나는 하늘색 상자에 들어 있었어요.', hint:'세 번째 이정표 근처' },
+  { id:'ppurada', kind:'shades', f:0.91, ic:'🕶️', name:'뿌라다 정상 선글라스', desc:'정상 햇살 전용. 쓰면 발아래 모든 산이 명품처럼 보여요.', hint:'정상 바로 아래' },
 ];
+const T_BY_ID = Object.fromEntries(TREASURES.map(t => [t.id, t]));
+/* 보물 그림 (canvas) */
+const tIconCache = {};
+function treasureIcon(id, size){
+  const key = id + size; if(tIconCache[key]) return tIconCache[key];
+  const t = T_BY_ID[id], S = size || 160, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'); x.scale(S/160, S/160);
+  const gold = () => { const g = x.createLinearGradient(30, 30, 130, 130); g.addColorStop(0, '#fff2b8'); g.addColorStop(0.35, '#e8c25a'); g.addColorStop(0.6, '#b8862a'); g.addColorStop(1, '#f6dc8a'); return g; };
+  const silver = () => { const g = x.createLinearGradient(30, 30, 130, 130); g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, '#c9ccd3'); g.addColorStop(0.7, '#8e939c'); g.addColorStop(1, '#e8eaee'); return g; };
+  // velvet backdrop
+  const bg = x.createRadialGradient(80, 70, 10, 80, 80, 80); bg.addColorStop(0, t.kind === 'heart' ? '#bfe9e4' : '#fbf3e1'); bg.addColorStop(1, t.kind === 'heart' ? '#7fd1c9' : '#e9d7b0');
+  x.fillStyle = bg; x.beginPath(); x.arc(80, 80, 76, 0, TAU); x.fill();
+  x.lineCap = 'round'; x.lineJoin = 'round';
+  const chain = (cx, cy, r, a0, a1, col) => { x.strokeStyle = col; x.lineWidth = 2.5; x.setLineDash([3, 3]); x.beginPath(); x.arc(cx, cy, r, a0, a1); x.stroke(); x.setLineDash([]); };
+  if(t.kind === 'bracelet'){
+    x.strokeStyle = gold(); x.lineWidth = 16; x.beginPath(); x.ellipse(80, 82, 46, 30, -0.2, 0, TAU); x.stroke();
+    x.strokeStyle = 'rgba(255,255,255,0.7)'; x.lineWidth = 3; x.beginPath(); x.ellipse(80, 78, 46, 28, -0.2, 3.6, 5.6); x.stroke();
+    for(let i=0;i<8;i++){ const a = i/8*TAU, px = 80 + Math.cos(a)*46*Math.cos(-0.2) - Math.sin(a)*30*Math.sin(-0.2), py = 82 + Math.cos(a)*46*Math.sin(-0.2) + Math.sin(a)*30*Math.cos(-0.2);
+      x.fillStyle = '#8a6420'; x.beginPath(); x.arc(px, py, 3.2, 0, TAU); x.fill(); x.strokeStyle = '#fff2b8'; x.lineWidth = 1; x.beginPath(); x.moveTo(px - 2, py); x.lineTo(px + 2, py); x.stroke(); }
+  } else if(t.kind === 'clover' || t.kind === 'heart'){
+    chain(80, 30, 48, 0.25, Math.PI - 0.25, t.kind === 'heart' ? '#b9bec7' : '#d8b04a');
+    if(t.kind === 'clover'){
+      for(let i=0;i<4;i++){ const a = i*Math.PI/2 + Math.PI/4, cx = 80 + Math.cos(a)*14, cy = 96 + Math.sin(a)*14;
+        x.fillStyle = gold(); x.beginPath(); x.arc(cx, cy, 15, 0, TAU); x.fill();
+        const pg = x.createRadialGradient(cx - 3, cy - 3, 1, cx, cy, 12); pg.addColorStop(0, '#ffffff'); pg.addColorStop(1, '#e6e0f0'); x.fillStyle = pg; x.beginPath(); x.arc(cx, cy, 11.5, 0, TAU); x.fill(); }
+      x.fillStyle = gold(); x.beginPath(); x.arc(80, 96, 4, 0, TAU); x.fill();
+    } else {
+      x.fillStyle = silver(); x.beginPath(); x.moveTo(80, 128); x.bezierCurveTo(40, 100, 50, 64, 80, 82); x.bezierCurveTo(110, 64, 120, 100, 80, 128); x.fill();
+      x.strokeStyle = '#7d828c'; x.lineWidth = 1.5; x.stroke();
+      x.fillStyle = 'rgba(255,255,255,0.8)'; x.beginPath(); x.ellipse(66, 90, 7, 4, -0.6, 0, TAU); x.fill();
+      x.fillStyle = '#c9ccd3'; x.beginPath(); x.arc(80, 76, 5, 0, TAU); x.fill();
+    }
+  } else if(t.kind === 'serpent'){
+    for(let i=0;i<3;i++){ x.strokeStyle = gold(); x.lineWidth = 9; x.beginPath(); x.ellipse(80, 62 + i*20, 36, 12, 0, 0, TAU); x.stroke();
+      x.strokeStyle = 'rgba(80,50,10,0.35)'; x.lineWidth = 1; for(let k=0;k<10;k++){ const a = k/10*Math.PI; x.beginPath(); x.arc(80 + Math.cos(a)*36, 62 + i*20 + Math.sin(a)*12, 3, 0, Math.PI); x.stroke(); } }
+    x.fillStyle = gold(); x.beginPath(); x.ellipse(118, 54, 13, 8, 0.5, 0, TAU); x.fill();
+    x.fillStyle = '#1f8a5a'; x.beginPath(); x.arc(122, 52, 2.6, 0, TAU); x.fill();
+  } else if(t.kind === 'watch'){
+    x.fillStyle = silver(); x.fillRect(64, 14, 32, 40); x.fillRect(64, 106, 32, 40);
+    x.strokeStyle = 'rgba(0,0,0,0.15)'; for(let k=0;k<4;k++){ x.beginPath(); x.moveTo(64, 20 + k*9); x.lineTo(96, 20 + k*9); x.stroke(); x.beginPath(); x.moveTo(64, 112 + k*9); x.lineTo(96, 112 + k*9); x.stroke(); }
+    x.fillStyle = gold(); x.beginPath(); x.arc(80, 80, 34, 0, TAU); x.fill();
+    x.fillStyle = '#1e5b3e'; x.beginPath(); x.arc(80, 80, 26, 0, TAU); x.fill();
+    x.fillStyle = '#f6dc8a'; for(let k=0;k<12;k++){ const a = k/12*TAU; x.fillRect(80 + Math.cos(a)*21 - 1.5, 80 + Math.sin(a)*21 - 1.5, 3, 3); }
+    x.strokeStyle = '#fff'; x.lineWidth = 2.5; x.beginPath(); x.moveTo(80, 80); x.lineTo(80, 64); x.moveTo(80, 80); x.lineTo(92, 86); x.stroke();
+    x.fillStyle = gold(); x.fillRect(113, 76, 7, 8);
+  } else if(t.kind === 'pearls'){
+    [[56, 0.15], [104, -0.15]].forEach(([cx, r]) => {
+      x.strokeStyle = gold(); x.lineWidth = 3.5; x.beginPath(); x.arc(cx, 52, 11, Math.PI*1.1, Math.PI*2.1); x.stroke();
+      x.fillStyle = '#111'; x.font = '700 15px serif'; x.textAlign = 'center';
+      const pg = x.createRadialGradient(cx - 7, 86, 2, cx, 94, 22); pg.addColorStop(0, '#ffffff'); pg.addColorStop(0.6, '#efe8f2'); pg.addColorStop(1, '#c7bfcf');
+      x.fillStyle = pg; x.beginPath(); x.arc(cx, 94, 21, 0, TAU); x.fill();
+      x.fillStyle = gold(); x.beginPath(); x.arc(cx, 70, 5, 0, TAU); x.fill();
+    });
+  } else if(t.kind === 'scarf'){
+    x.save(); x.translate(80, 84); x.rotate(-0.25);
+    x.fillStyle = '#e8762c'; x.beginPath(); x.moveTo(-50, -38); x.quadraticCurveTo(0, -48, 50, -38); x.quadraticCurveTo(58, 0, 46, 40); x.quadraticCurveTo(0, 50, -46, 40); x.quadraticCurveTo(-58, 0, -50, -38); x.fill();
+    x.strokeStyle = '#f6dc8a'; x.lineWidth = 4; x.stroke();
+    x.strokeStyle = '#7a2e12'; x.lineWidth = 2.5; for(let k=0;k<3;k++){ x.beginPath(); x.arc(0, 0, 10 + k*9, 0, TAU); x.stroke(); }
+    x.fillStyle = '#f6dc8a'; for(let k=0;k<6;k++){ const a = k/6*TAU; x.beginPath(); x.arc(Math.cos(a)*30, Math.sin(a)*22, 3.5, 0, TAU); x.fill(); }
+    x.fillStyle = 'rgba(255,255,255,0.25)'; x.beginPath(); x.moveTo(-50, -38); x.lineTo(-10, -44); x.lineTo(-40, 10); x.fill();
+    x.restore();
+  } else {
+    x.fillStyle = '#1b1b1f'; [[52, 84], [108, 84]].forEach(([cx, cy]) => { const lg = x.createLinearGradient(cx, cy - 20, cx, cy + 20); lg.addColorStop(0, '#3c4250'); lg.addColorStop(1, '#0f0f12'); x.fillStyle = lg; x.beginPath(); x.ellipse(cx, cy, 25, 20, 0, 0, TAU); x.fill(); x.strokeStyle = gold(); x.lineWidth = 3.5; x.stroke();
+      x.fillStyle = 'rgba(255,255,255,0.35)'; x.beginPath(); x.ellipse(cx - 9, cy - 8, 8, 3.5, -0.5, 0, TAU); x.fill(); });
+    x.strokeStyle = gold(); x.lineWidth = 3.5; x.beginPath(); x.moveTo(76, 78); x.quadraticCurveTo(80, 72, 84, 78); x.stroke();
+    x.beginPath(); x.moveTo(27, 78); x.lineTo(16, 72); x.moveTo(133, 78); x.lineTo(144, 72); x.stroke();
+    x.fillStyle = '#e8c25a'; x.beginPath(); x.moveTo(30, 66); x.lineTo(36, 62); x.lineTo(36, 70); x.fill();
+  }
+  // sparkle
+  x.fillStyle = 'rgba(255,255,255,0.95)'; [[124, 34, 7], [36, 124, 5]].forEach(([sx, sy, r]) => { x.beginPath(); x.moveTo(sx, sy - r); x.lineTo(sx + r*0.3, sy - r*0.3); x.lineTo(sx + r, sy); x.lineTo(sx + r*0.3, sy + r*0.3); x.lineTo(sx, sy + r); x.lineTo(sx - r*0.3, sy + r*0.3); x.lineTo(sx - r, sy); x.lineTo(sx - r*0.3, sy - r*0.3); x.fill(); });
+  return (tIconCache[key] = c.toDataURL('image/png'));
+}
 let tBook = {};
 const tItems = []; let tFoundNow = 0, tNewIds = new Set();
 function treasureMesh(id){
-  const g = new THREE.Group(), S = (c, e) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, emissive: e || 0x000000, flatShading: true });
-  const add = (geo, mat, x, y, z, sx, sy, sz, rx, rz) => { const m = new THREE.Mesh(geo, mat); m.position.set(x,y,z); m.scale.set(sx||1, sy||1, sz||1); m.rotation.set(rx||0, 0, rz||0); m.castShadow = true; g.add(m); return m; };
-  if(id === 'pebble'){ add(new THREE.SphereGeometry(0.22, 10, 8), S(0x7fa6c9, 0x1b2c3a), 0, 0.12, 0, 1.3, 0.6, 1); }
-  else if(id === 'clover'){ const m = S(0x4f9a3e, 0x0f2a0a); for(let i=0;i<4;i++){ const a = i*Math.PI/2; add(new THREE.SphereGeometry(0.1, 8, 6), m, Math.cos(a)*0.11, 0.35, Math.sin(a)*0.11, 1, 0.35, 1); } add(new THREE.CylinderGeometry(0.015, 0.015, 0.35, 4), m, 0, 0.17, 0); }
-  else if(id === 'acorn'){ const b = S(0xa0652e, 0x2a1406), c = S(0x6b4a2c); [[0,0],[0.18,0.06],[-0.12,0.14]].forEach(([x,z]) => { add(new THREE.SphereGeometry(0.1, 8, 6), b, x, 0.11, z, 1, 1.25, 1); add(new THREE.SphereGeometry(0.105, 8, 6, 0, TAU, 0, Math.PI/2), c, x, 0.17, z); }); }
-  else if(id === 'letter'){ add(new THREE.BoxGeometry(0.42, 0.02, 0.3), S(0xf3ead2, 0x3a3428), 0, 0.03, 0, 1, 1, 1, 0, 0.08); add(new THREE.BoxGeometry(0.08, 0.025, 0.1), S(0xd9483b), 0.13, 0.045, -0.07); }
-  else if(id === 'leaf'){ add(new THREE.ConeGeometry(0.2, 0.42, 5), S(0xd2402c, 0x3a0d06), 0, 0.06, 0, 1, 1, 0.15, Math.PI/2, 0); }
-  else if(id === 'duck'){ const w = S(0xd9b27c, 0x2a2010); add(new THREE.SphereGeometry(0.17, 10, 8), w, 0, 0.16, 0, 1.3, 0.9, 1); add(new THREE.SphereGeometry(0.1, 10, 8), w, 0.17, 0.32, 0); add(new THREE.ConeGeometry(0.04, 0.1, 6), S(0xe08a2a), 0.28, 0.31, 0, 1, 1, 1, 0, -Math.PI/2); }
-  else if(id === 'feather'){ add(new THREE.ConeGeometry(0.07, 0.6, 6), S(0x5e86c9, 0x0f1f3a), 0, 0.05, 0, 1, 1, 0.25, Math.PI/2, 0.3); }
-  else { add(new THREE.OctahedronGeometry(0.2, 0), S(0xf6d25a, 0x8a6a10), 0, 0.45, 0); }
+  const t = T_BY_ID[id], g = new THREE.Group();
+  const GOLD = new THREE.MeshStandardMaterial({ color: 0xe8c25a, roughness: 0.28, metalness: 0.55, emissive: 0x3a2a05 });
+  const SILV = new THREE.MeshStandardMaterial({ color: 0xdfe2e8, roughness: 0.25, metalness: 0.5, emissive: 0x1c1d20 });
+  const add = (geo, mat, x, y, z, rx, ry, rz, sx, sy, sz) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx || 0, ry || 0, rz || 0); m.scale.set(sx || 1, sy || 1, sz || 1); m.castShadow = true; g.add(m); return m; };
+  // little velvet box
+  add(new THREE.BoxGeometry(0.62, 0.16, 0.62), new THREE.MeshStandardMaterial({ color: t.kind === 'heart' ? 0x7fd1c9 : 0x5a1f2a, roughness: 0.9 }), 0, 0.08, 0);
+  const Y = 0.24;
+  if(t.kind === 'bracelet'){ add(new THREE.TorusGeometry(0.22, 0.045, 14, 40), GOLD, 0, Y + 0.06, 0, -1.1, 0, 0); }
+  else if(t.kind === 'clover'){ add(new THREE.TorusGeometry(0.24, 0.012, 6, 40), GOLD, 0, Y, 0, -Math.PI/2); for(let i=0;i<4;i++){ const a = i*Math.PI/2 + Math.PI/4; add(new THREE.CylinderGeometry(0.06, 0.06, 0.025, 20), new THREE.MeshStandardMaterial({ color: 0xf6f2ff, roughness: 0.2, emissive: 0x2a2830 }), Math.cos(a)*0.06, Y + 0.02, 0.1 + Math.sin(a)*0.06); } }
+  else if(t.kind === 'serpent'){ for(let i=0;i<3;i++) add(new THREE.TorusGeometry(0.11, 0.028, 10, 30), GOLD, 0, Y + 0.02 + i*0.06, 0, -Math.PI/2 + 0.1); add(new THREE.SphereGeometry(0.045, 12, 8), GOLD, 0.12, Y + 0.17, 0.02, 0, 0, 0, 1.4, 0.8, 1); }
+  else if(t.kind === 'watch'){ add(new THREE.CylinderGeometry(0.13, 0.13, 0.05, 32), GOLD, 0, Y + 0.05, 0); add(new THREE.CylinderGeometry(0.1, 0.1, 0.052, 32), new THREE.MeshStandardMaterial({ color: 0x1e5b3e, roughness: 0.3 }), 0, Y + 0.052, 0); add(new THREE.BoxGeometry(0.15, 0.03, 0.5), SILV, 0, Y + 0.02, 0); }
+  else if(t.kind === 'pearls'){ [-0.1, 0.1].forEach(x => { add(new THREE.SphereGeometry(0.07, 20, 14), new THREE.MeshStandardMaterial({ color: 0xf7f2fa, roughness: 0.15, emissive: 0x2c2a30 }), x, Y + 0.05, 0); add(new THREE.TorusGeometry(0.04, 0.01, 6, 16), GOLD, x, Y + 0.14, 0); }); }
+  else if(t.kind === 'scarf'){ const sg = new THREE.PlaneGeometry(0.5, 0.5, 6, 6); const sp = sg.attributes.position; for(let i=0;i<sp.count;i++) sp.setZ(i, Math.sin(sp.getX(i)*12)*0.03); sg.computeVertexNormals();
+    add(sg, new THREE.MeshStandardMaterial({ color: 0xe8762c, roughness: 0.5, side: THREE.DoubleSide, emissive: 0x2a1004 }), 0, Y, 0, -Math.PI/2 + 0.05, 0.4); }
+  else if(t.kind === 'heart'){ add(new THREE.TorusGeometry(0.24, 0.01, 6, 40), SILV, 0, Y, 0, -Math.PI/2);
+    const hs = new THREE.Shape(); hs.moveTo(0, -0.09); hs.bezierCurveTo(-0.12, 0.0, -0.08, 0.1, 0, 0.04); hs.bezierCurveTo(0.08, 0.1, 0.12, 0.0, 0, -0.09);
+    add(new THREE.ExtrudeGeometry(hs, { depth: 0.025, bevelEnabled: true, bevelSize: 0.01, bevelThickness: 0.01, bevelSegments: 3 }), SILV, 0, Y + 0.02, 0.1, -Math.PI/2, 0, 0, 1.4, 1.4, 1.4); }
+  else { [-0.1, 0.1].forEach(x => { add(new THREE.CylinderGeometry(0.085, 0.085, 0.02, 24), new THREE.MeshStandardMaterial({ color: 0x15151a, roughness: 0.1, metalness: 0.3 }), x, Y + 0.03, 0, Math.PI/2 - 0.3); add(new THREE.TorusGeometry(0.085, 0.01, 6, 24), GOLD, x, Y + 0.03, 0, -0.3); }); add(new THREE.BoxGeometry(0.06, 0.01, 0.01), GOLD, 0, Y + 0.05, 0.01); }
+  g.scale.setScalar(1.25);
   return g;
 }
 let sparkleTex;
@@ -1782,7 +1978,7 @@ function buildTreasures(){
   });
   refreshTreasureHUD();
 }
-function resetTreasures(){ Act.stolen = 0; tFoundNow = 0; tNewIds.clear(); tItems.forEach(it => { it.found = false; it.hinted = false; it.anim = 0; it.g.visible = true; it.g.scale.set(1,1,1); it.g.position.y = it.y; }); refreshTreasureHUD(); }
+function resetTreasures(){ runStats = { climbed: false, drank: false }; Act.stolen = 0; tFoundNow = 0; tNewIds.clear(); tItems.forEach(it => { it.found = false; it.hinted = false; it.anim = 0; it.g.visible = true; it.g.scale.set(1,1,1); it.g.position.y = it.y; }); refreshTreasureHUD(); }
 function refreshTreasureHUD(){ $('tCount').textContent = tFoundNow + '/' + TREASURES.length; }
 function updateTreasures(dt, t){
   tItems.forEach((it, i) => {
@@ -1810,9 +2006,16 @@ function collectTreasure(it){
   if(!again){ tBook[it.t.id] = Date.now(); tNewIds.add(it.t.id); try { localStorage.setItem('sanhaeng-treasure-' + M.id, JSON.stringify(tBook)); } catch(e){} }
   refreshTreasureHUD();
   const b = $('btnTreasure'); b.classList.add('pop'); setTimeout(() => b.classList.remove('pop'), 900);
-  toast(it.t.ic + ' ' + it.t.name + (again ? ' · 또 만났어요' : ' · 보물 발견!') + ' (' + tFoundNow + '/' + TREASURES.length + ')', 4);
+  showLoot(it.t, again);
   Sound.chime();
   if(typeof Online !== 'undefined') Online.sendT = 0;
+}
+let lootT = 0;
+function showLoot(t, again){
+  $('lootImg').src = treasureIcon(t.id, 220); $('lootName').textContent = t.name;
+  $('lootSub').textContent = (again ? '또 만났어요' : '✨ 명품(?) 발견!') + ' · ' + tFoundNow + '/' + TREASURES.length;
+  const el = $('loot'); el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  clearTimeout(lootT); lootT = setTimeout(() => el.classList.remove('show'), 3200);
 }
 function openTreasureBook(){
   const grid = $('tgrid'); grid.textContent = '';
@@ -1821,12 +2024,75 @@ function openTreasureBook(){
   TREASURES.forEach(t => {
     const have = !!tBook[t.id], d = document.createElement('div');
     d.className = 'titem' + (have ? '' : ' no') + (tNewIds.has(t.id) ? ' new' : '');
-    const ic = document.createElement('div'); ic.className = 'ic'; ic.textContent = have ? t.ic : '？';
+    const ic = document.createElement(have ? 'img' : 'div'); ic.className = 'ic'; if(have) ic.src = treasureIcon(t.id, 160); else ic.textContent = '？';
     const b = document.createElement('b'); b.textContent = have ? t.name : '아직 못 찾았어요';
     const p = document.createElement('div'); p.textContent = have ? t.desc : '힌트: ' + t.hint;
     d.append(ic, b, p); grid.appendChild(d);
   });
   $('tbook').classList.remove('hidden');
+}
+
+/* ---------- 정상 보상: 별 · 배지 · 칭호 · 인증서 ---------- */
+let STARS = {}; try { STARS = JSON.parse(localStorage.getItem('sanhaeng-stars') || '{}') || {}; } catch(e){ STARS = {}; }
+function thirdStarInfo(){ return climbs.length ? { key: 'c', label: '암벽 오르기', ok: runStats.climbed } : { key: 'w', label: '약수 마시기', ok: runStats.drank }; }
+function starCount(id){ const r = STARS[id]; return r ? (r.s ? 1 : 0) + (r.t ? 1 : 0) + (r.x ? 1 : 0) : 0; }
+const TITLES = ['새내기 등산객', '산책하는 등산객', '주말 산꾼', '산 좋아하는 사람', '능선을 걷는 사람', '명산 순례자', '대한민국 명산 완등'];
+function myTitle(){ const n = MOUNTAINS.filter(m => STARS[m.id] && STARS[m.id].s).length, total = MOUNTAINS.reduce((a, m) => a + starCount(m.id), 0);
+  return total >= MOUNTAINS.length*3 ? '🏔️ 산신령' : TITLES[Math.min(n, TITLES.length - 1)]; }
+function awardSummit(sec){
+  const prev = STARS[M.id] || {}, third = thirdStarInfo();
+  const now = { s: 1, t: prev.t || (tFoundNow >= TREASURES.length ? 1 : 0), x: prev.x || (third.ok ? 1 : 0), best: prev.best ? Math.min(prev.best, sec) : sec, n: (prev.n || 0) + 1 };
+  const firstTime = !prev.s, newT = now.t && !prev.t, newX = now.x && !prev.x;
+  STARS[M.id] = now; try { localStorage.setItem('sanhaeng-stars', JSON.stringify(STARS)); } catch(e){}
+  const row = $('starRow'); row.textContent = '';
+  [['정상 도착', now.s, firstTime], ['보물 8개', now.t, newT], [third.label, now.x, newX]].forEach(([lab, on, isNew]) => {
+    const d = document.createElement('div'); d.className = 'st' + (on ? ' on' : '') + (isNew ? ' new' : '');
+    const b = document.createElement('b'); b.textContent = on ? '★' : '☆'; const l = document.createElement('span'); l.textContent = lab; d.append(b, l); row.appendChild(d);
+  });
+  $('titleLine').textContent = '칭호 · ' + myTitle() + (firstTime ? ' · 🏅 ' + M.name + ' 배지 획득!' : ' · ' + M.name + ' ' + now.n + '번째 등정');
+  const mm = Math.floor(sec/60), ss = sec%60, bm = Math.floor(now.best/60), bs = now.best%60;
+  $('certImg').src = drawCertificate(now, (mm ? mm + '분 ' : '') + ss + '초', (bm ? bm + '분 ' : '') + bs + '초');
+  $('certHint').textContent = isTouch ? '인증서를 길게 눌러 저장할 수 있어요' : '인증서를 오른쪽 클릭해 저장할 수 있어요';
+  player.cheerT = 2.2; summitBurst(); Sound.fanfare();
+}
+function drawCertificate(st, timeStr, bestStr){
+  const c = document.createElement('canvas'); c.width = 720; c.height = 460; const x = c.getContext('2d');
+  const sky = x.createLinearGradient(0, 0, 0, 460); sky.addColorStop(0, '#f6f0e2'); sky.addColorStop(1, '#efe4cb'); x.fillStyle = sky; x.fillRect(0, 0, 720, 460);
+  // mountains silhouette
+  x.fillStyle = '#c9d3c4'; x.beginPath(); x.moveTo(0, 360); x.lineTo(120, 270); x.lineTo(220, 320); x.lineTo(360, 210); x.lineTo(470, 300); x.lineTo(580, 250); x.lineTo(720, 330); x.lineTo(720, 460); x.lineTo(0, 460); x.fill();
+  x.fillStyle = '#8fa98a'; x.beginPath(); x.moveTo(0, 410); x.lineTo(160, 330); x.lineTo(300, 390); x.lineTo(430, 300); x.lineTo(560, 380); x.lineTo(720, 340); x.lineTo(720, 460); x.lineTo(0, 460); x.fill();
+  x.fillStyle = 'rgba(224,112,58,0.85)'; x.beginPath(); x.arc(600, 120, 34, 0, TAU); x.fill();
+  x.strokeStyle = '#7a5a3a'; x.lineWidth = 6; x.strokeRect(14, 14, 692, 432); x.lineWidth = 1.5; x.strokeRect(26, 26, 668, 408);
+  x.fillStyle = '#2f3b2f'; x.textAlign = 'center';
+  x.font = '700 26px "Gowun Batang", serif'; x.fillText('등 정 인 증 서', 360, 76);
+  x.font = '700 58px "Gowun Batang", serif'; x.fillText(M.name, 360, 148);
+  x.font = '26px "Gowun Batang", serif'; x.fillText(M.peak + ' · 해발 ' + M.elev.toLocaleString('ko-KR') + 'm', 360, 188);
+  x.font = '22px "Gowun Dodum", sans-serif';
+  x.fillText((myName || '등산객') + ' 님이 정상에 올랐음을 인증합니다', 360, 232);
+  const now = new Date(Date.now() + 9*3600000);
+  x.font = '18px "Gowun Dodum", sans-serif'; x.fillStyle = '#4a4a3c';
+  x.fillText(now.getUTCFullYear() + '년 ' + (now.getUTCMonth() + 1) + '월 ' + now.getUTCDate() + '일 ' + kstStr(new Date()) + ' (KST) · 걸린 시간 ' + timeStr + ' · 최고 기록 ' + bestStr, 360, 266);
+  x.font = '40px serif'; x.fillStyle = '#c9a227'; x.fillText((st.s ? '★' : '☆') + ' ' + (st.t ? '★' : '☆') + ' ' + (st.x ? '★' : '☆'), 360, 318);
+  x.font = '700 17px "Gowun Batang", serif'; x.fillStyle = '#7a4a1c'; x.fillText(myTitle(), 360, 346);
+  x.save(); x.translate(610, 380); x.rotate(-0.15); x.strokeStyle = '#c0392b'; x.fillStyle = '#c0392b'; x.lineWidth = 3; x.beginPath(); x.arc(0, 0, 40, 0, TAU); x.stroke();
+  x.font = '700 18px "Gowun Batang", serif'; x.fillText('등산의', 0, -4); x.fillText('목적', 0, 18); x.restore();
+  return c.toDataURL('image/png');
+}
+let burst = null;
+function summitBurst(){
+  if(burst){ scene.remove(burst.pts); }
+  const n = 160, pos = new Float32Array(n*3), col = new Float32Array(n*3), vel = [];
+  const cols = ['#e2463c','#f2c84b','#e07b2f','#d9c24a','#c94f2c','#ffffff'].map(h => new THREE.Color(h));
+  for(let i=0;i<n;i++){ pos[i*3] = px; pos[i*3+1] = py + 2; pos[i*3+2] = pz; const a = Math.random()*TAU, sp = 2 + Math.random()*4.5;
+    vel.push([Math.cos(a)*sp, 5 + Math.random()*5, Math.sin(a)*sp]); const c = cols[i % cols.length]; col[i*3] = c.r; col[i*3+1] = c.g; col[i*3+2] = c.b; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const pts = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.28, vertexColors: true, map: leaves.pts.material.map, alphaTest: 0.3, transparent: true }));
+  pts.frustumCulled = false; scene.add(pts); burst = { pts, vel, t: 0 };
+}
+function updateBurst(dt){
+  if(!burst) return; burst.t += dt; const p = burst.pts.geometry.attributes.position;
+  for(let i=0;i<burst.vel.length;i++){ const v = burst.vel[i]; v[1] -= 6*dt; v[0] *= 0.985; v[2] *= 0.985; p.array[i*3] += v[0]*dt; p.array[i*3+1] += Math.max(v[1], -1.5)*dt; p.array[i*3+2] += v[2]*dt; }
+  p.needsUpdate = true; if(burst.t > 7){ scene.remove(burst.pts); burst = null; }
 }
 
 /* ---------- 달리기 ---------- */
@@ -1891,7 +2157,7 @@ function knockedOut(){
 function updateLandslide(dt){
   Slide.shake = Math.max(0, Slide.shake - dt*0.08);
   Slide.safeT = Math.max(0, Slide.safeT - dt);
-  if(!started || Rest.on || summitShown){ if(Slide.phase && !started) clearSlide(); return; }
+  if(!started || Rest.on || Climb.on || summitShown){ if(Slide.phase && !started) clearSlide(); return; }
   if(!Slide.phase){
     Slide.timer -= dt;
     if(Slide.timer <= 0){
@@ -1951,7 +2217,7 @@ function drinkWater(){
   const w = nearSpring(); if(!w || player.drinkT > 0) return;
   setAuto(false); Move.target = null;
   facing = Math.atan2(w.x - px, w.z - pz); player.drinkT = 1.8;
-  Run.st = 100; updateRunButton();
+  Run.st = 100; updateRunButton(); runStats.drank = true;
   Sound.gulp();
   toast('💧 바가지로 시원한 약수 한 모금! 기운이 다시 차올랐어요', 3);
 }
@@ -1961,6 +2227,9 @@ function updateRestButton(){
   btn.classList.toggle('hidden', !b || actShown);
   const dw = started && !Rest.on && !actShown && !b ? nearSpring() : null;
   $('btnDrink').classList.toggle('hidden', !dw);
+  const cl = started && !Rest.on && !Climb.on && !actShown && !b && !dw ? nearClimb() : null;
+  $('btnClimb').classList.toggle('hidden', !cl);
+  climbs.forEach(c => { const d = Math.hypot(c.base.x - px, c.base.z - pz); if(started && d < 10 && !c.near){ c.near = true; toast('🧗 밧줄이 걸린 암벽이에요 · 가까이 가면 오를 수 있어요', 3); } else if(d > 20) c.near = false; });
 }
 function updateActionButton(dt){
   Act.cool = Math.max(0, Act.cool - dt);
@@ -2010,6 +2279,7 @@ const camTarget = new THREE.Vector3();
 
 function setAuto(v){ auto = v; if(v && typeof Move !== 'undefined') Move.target = null; $('btnAuto').classList.toggle('on', v); $('btnAuto').innerHTML = '<span class="dot"></span>' + (v ? '걷는 중… (멈추기)' : '길 따라 걷기'); }
 function resetToStart(){
+  if(typeof Climb !== 'undefined' && Climb.on){ Climb.on = false; player.climbing = false; $('btnClimbDown').classList.add('hidden'); }
   curSection = '';
   if(typeof Rest !== 'undefined' && Rest.on){ Rest.on = false; player.sitting = false; $('hud').classList.remove('resting'); $('btnStand').classList.add('hidden'); }
   const p = pointAt(2.5), side = (Math.random()*2 - 1)*1.3; px = p.x - p.tz*side; pz = p.z + p.tx*side; facing = Math.atan2(p.tx, p.tz); yaw = facing; sPlayer = 2.5;
@@ -2018,6 +2288,38 @@ function resetToStart(){
 }
 
 const Rest = { on: false, b: null, seat: 0, msgT: 0 };
+const Climb = { on: false, phase: '', t: 0, c: null };
+let runStats = { climbed: false, drank: false };
+function nearClimb(){ let best = null, bd = 2.8; climbs.forEach(c => { const d = Math.hypot(c.base.x - px, c.base.z - pz); if(d < bd){ bd = d; best = c; } }); return best; }
+function startClimb(c){
+  if(!c || Climb.on) return;
+  if(Rest.on) standUp(); setAuto(false); Move.target = null; setRun(false);
+  Climb.on = true; Climb.phase = 'up'; Climb.t = 0; Climb.c = c; player.climbing = true;
+  toast('🧗 밧줄을 꽉 잡고 올라가요', 2.5); Online.sendT = 0;
+}
+function climbDown(){ if(Climb.on && Climb.phase === 'top'){ Climb.phase = 'down'; Climb.t = 0; player.climbing = true; $('btnClimbDown').classList.add('hidden'); Online.sendT = 0; } }
+const lerp3 = (a, b, k) => [a.x + (b.x - a.x)*k, a.y + (b.y - a.y)*k, a.z + (b.z - a.z)*k];
+function updateClimb(dt, t){
+  const c = Climb.c; let q;
+  if(Climb.phase === 'up'){
+    Climb.t += dt/5.5; const k = Math.min(1, Climb.t);
+    q = k < 0.86 ? lerp3(c.base, c.edge, k/0.86) : lerp3(c.edge, c.top, (k - 0.86)/0.14);
+    facing = c.rot + Math.PI; if(Math.floor(t*2.2) !== Math.floor((t - dt)*2.2)) Sound.footstep();
+    if(k >= 1){ Climb.phase = 'top'; player.climbing = false; $('btnClimbDown').classList.remove('hidden');
+      if(!runStats.climbed){ runStats.climbed = true; toast('🧗 암벽 위에 올랐어요! ⭐ 별 하나 획득', 3.5); Sound.chime(); } else toast('🧗 다시 암벽 위! 멀리까지 보여요', 3);
+      player.cheerT = 1.6; Online.sendT = 0; }
+  } else if(Climb.phase === 'top'){
+    q = [c.top.x, c.top.y, c.top.z]; facing = c.rot;
+  } else {
+    Climb.t += dt/3; const k = Math.min(1, Climb.t);
+    q = k < 0.14 ? lerp3(c.top, c.edge, k/0.14) : lerp3(c.edge, c.base, (k - 0.14)/0.86);
+    facing = c.rot + Math.PI;
+    if(k >= 1){ Climb.on = false; Climb.phase = ''; player.climbing = false; facing = c.rot; Online.sendT = 0; }
+  }
+  px = q[0]; py = q[1]; pz = q[2];
+  player.root.position.set(px, py, pz); player.root.rotation.y = facing;
+  animHiker(player, dt, 0, t);
+}
 function nearBench(){ let best = null, bd = 3.2; benches.forEach(b => { const d = Math.hypot(b.x - px, b.z - pz); if(d < bd){ bd = d; best = b; } }); return best; }
 function sitDown(b){
   if(!b) return;
@@ -2049,6 +2351,7 @@ function updatePlayer(dt, t){
   let il = Math.hypot(ix,iy); if(il > 1){ ix/=il; iy/=il; il = 1; }
   const wantRun = Run.on || keys.has('ShiftLeft') || keys.has('ShiftRight');
   const run = wantRun && Run.st > 1;
+  if(Climb.on){ if(Climb.phase === 'top' && il > 0.5) climbDown(); updateClimb(dt, t); return; }
   if(Rest.on){
     if(il > 0.5){ standUp(); }
     else {
@@ -2112,7 +2415,8 @@ function updatePlayer(dt, t){
     $('summitText').innerHTML = M.name + ' ' + M.peak + ', 해발 ' + M.elev.toLocaleString('ko-KR') + 'm에 올랐어요.<br>' + (mm>0 ? mm + '분 ' : '') + ss + '초 동안 걸었어요. 수고했어요.';
     if(TOD.altDeg > -6 && TOD.altDeg < 10) $('summitText').innerHTML += '<br>🌅 정상에서 해를 맞이했어요.';
     $('summitTreasure').textContent = '이번 산행에서 찾은 보물 ' + tFoundNow + '/' + TREASURES.length + (tFoundNow === TREASURES.length ? ' · 전부 찾았어요!' : '');
-    setTimeout(() => $('summit').classList.remove('hidden'), 900);
+    awardSummit(sec);
+    setTimeout(() => $('summit').classList.remove('hidden'), 1600);
   }
 }
 
@@ -2177,6 +2481,7 @@ canvas.addEventListener('pointerup', e => {
   const wasTap = p && !p.drag && ptrs.size === 1 && performance.now() - p.t0 < 450;
   endPtr(e);
   if(!wasTap || !started || !groundMesh) return;
+  if(Climb.on){ climbDown(); return; }
   ndc.set((e.clientX / innerWidth)*2 - 1, -(e.clientY / innerHeight)*2 + 1);
   raycaster.setFromCamera(ndc, camera);
   const hit = raycaster.intersectObject(groundMesh, false)[0];
@@ -2253,8 +2558,10 @@ $('btnRun').addEventListener('click', () => setRun(!Run.on));
 $('btnAct').addEventListener('click', doAction);
 $('btnRest').addEventListener('click', () => sitDown(nearBench()));
 $('btnDrink').addEventListener('click', drinkWater);
+$('btnClimb').addEventListener('click', () => startClimb(nearClimb()));
+$('btnClimbDown').addEventListener('click', climbDown);
 $('btnStand').addEventListener('click', standUp);
-addEventListener('keydown', e => { if(!started || e.target === $('nick')) return; if(e.code === 'KeyE'){ if(Act.target) doAction(); else if(Rest.on) standUp(); else if(nearBench()) sitDown(nearBench()); else drinkWater(); } });
+addEventListener('keydown', e => { if(!started || e.target === $('nick')) return; if(e.code === 'KeyE'){ if(Act.target) doAction(); else if(Rest.on) standUp(); else if(Climb.on) climbDown(); else if(nearClimb()) startClimb(nearClimb()); else if(nearBench()) sitDown(nearBench()); else drinkWater(); } });
 $('btnSound').addEventListener('click', () => { const on = Sound.toggle(); $('btnSound').innerHTML = on ? ICON_ON : ICON_OFF; });
 $('btnHelp').addEventListener('click', () => $('help').classList.remove('hidden'));
 $('btnHelpClose').addEventListener('click', () => $('help').classList.add('hidden'));
@@ -2288,7 +2595,7 @@ function frame(now){
   if(started) updatePlayer(dt, clock);
   else { yaw += dt*0.06; animHiker(player, dt, 0, clock); player.root.position.set(px,py,pz); player.root.rotation.y = yaw + Math.PI; }
   updateNPCs(dt, clock);
-  updateTreasures(dt, clock); updateAnimals(dt, clock); updateLandslide(dt);
+  updateTreasures(dt, clock); updateAnimals(dt, clock); updateLandslide(dt); updateBurst(dt);
   { let wd = 1e9; springs.forEach(w => { w.water.scale.setScalar(1 + Math.sin(clock*5 + w.x)*0.015); w.dippers.forEach((d, i) => d.rotation.z = Math.sin(clock*1.6 + i*1.3)*0.05*U.uWind.value); w.stream.material.opacity = 0.55 + Math.sin(clock*23 + w.z)*0.15; wd = Math.min(wd, Math.hypot(w.x - px, w.z - pz)); });
     let sv = 0; streams.forEach(st => { st.tex.offset.y -= dt*0.6; const dx = px - st.x, dz = pz - st.z, along = clamp(dx*st.ax + dz*st.az, -st.len/2, st.len/2);
       const d = Math.hypot(dx - st.ax*along, dz - st.az*along); sv = Math.max(sv, 1 - smoothstep(3, 40, d)); });
@@ -2348,6 +2655,7 @@ function renderMountainPicker(){
     const e = document.createElement('span'); e.textContent = m.peak + ' ' + m.elev.toLocaleString('ko-KR') + 'm';
     const t = document.createElement('span'); const cs = COURSES[m.id]; t.textContent = cs ? [...new Set(cs.sec.map(q => SECTION_INFO[q[2]].ic))].join('') + ' ' + m.tag : m.tag;
     b.append(n, e, t);
+    { const r = STARS[m.id]; if(r && r.s){ const md = document.createElement('span'); md.className = 'medal'; const k = starCount(m.id); md.textContent = '🏅 ' + '★'.repeat(k) + '☆'.repeat(3 - k); b.appendChild(md); } }
     if(mtCounts[m.id]){ const l = document.createElement('span'); l.className = 'live'; l.textContent = '● ' + mtCounts[m.id] + '명 오르는 중'; b.appendChild(l); }
     b.addEventListener('click', () => { if(m.id === M.id) return; switchMountain(m.id); });
     box.appendChild(b);
@@ -2359,6 +2667,8 @@ function switchMountain(id){
 }
 let resumeOk = false;
 function showStartScreen(reset){
+  setTimeout(renderMountainPicker, 0);
+  if(Climb.on){ Climb.on = false; player.climbing = false; $('btnClimbDown').classList.add('hidden'); }
   clearSlide(); setRun(false);
   if(Rest.on) standUp();
   if(reset){ resetToStart(); resetTreasures(); resumeOk = false; } else resumeOk = true;
