@@ -303,6 +303,9 @@ const MOUNTAINS = [
   { id:'naejangsan', name:'내장산', peak:'신선봉', elev:763,  start:150, km:3.2, trailhead:'내장사',
     desc:'가장 붉은 단풍길. 가을이 제일 예쁜 산', tag:'단풍 명소',
     h:64, w:76, ridge:18, rocky:0.45, pine:0.22, palette:'maple', extra:'maples', turns:1.45, endR:1.5, seed:763 },
+  { id:'gongryong', name:'공룡능선', peak:'1275봉', elev:1275, start:1020, km:4.6, trailhead:'무너미고개',
+    desc:'공룡의 등뼈처럼 솟은 암봉을 오르내리는 설악의 대표 능선', tag:'암릉 종주',
+    h:98, w:66, ridge:30, rocky:1.6, pine:0.5, palette:'fire', extra:'spires', spireN:80, turns:1.7, endR:1.5, seed:1275 },
 ];
 const MT_BY_ID = Object.fromEntries(MOUNTAINS.map(m => [m.id, m]));
 /* 코스 구간: forest 숲길 · rock 바윗길 · ridge 능선길 · stairs 계단길 · valley 계곡길 */
@@ -318,6 +321,7 @@ const COURSES = {
   seoraksan:  { wig:7, wigF:58, stream:0.42, sec:[[0,0.3,'stairs'],[0.3,0.36,'forest'],[0.36,0.48,'valley'],[0.48,0.7,'forest'],[0.7,1.01,'rock']] },
   jirisan:    { wig:3, wigF:22, stream:0.12, sec:[[0,0.08,'forest'],[0.08,0.22,'valley'],[0.22,0.58,'forest'],[0.58,0.86,'ridge'],[0.86,1.01,'rock']] },
   hallasan:   { wig:2, wigF:14, stream:-1,   sec:[[0,0.62,'forest'],[0.62,0.8,'stairs'],[0.8,1.01,'ridge']] },
+  gongryong:  { wig:8, wigF:70, stream:-1, humps:7, sec:[[0,0.07,'forest'],[0.07,0.3,'rock'],[0.3,0.4,'ridge'],[0.4,0.62,'rock'],[0.62,0.7,'stairs'],[0.7,1.01,'rock']] },
   naejangsan: { wig:5, wigF:34, stream:0.2,  sec:[[0,0.14,'forest'],[0.14,0.28,'valley'],[0.28,0.5,'forest'],[0.5,0.68,'stairs'],[0.68,1.01,'ridge']] },
 };
 function sectionAtF(f){ const c = COURSES[M.id]; if(!c) return 'forest'; for(const q of c.sec) if(f >= q[0] && f < q[1]) return q[2]; return 'forest'; }
@@ -354,6 +358,7 @@ function genPath(){
     const tmp = Float32Array.from(ph);
     for(let i=0;i<N;i++){ let s=0,c=0; for(let j=i-8;j<=i+8;j++){ if(j>=0&&j<N){ s+=tmp[j]; c++; } } ph[i]=s/c; }
   }
+  { const C = COURSES[M.id]; if(C && C.humps){ for(let i=0;i<N;i++){ const t = i/(N-1); ph[i] += 7*Math.pow(Math.abs(Math.sin(t*Math.PI*C.humps)), 1.5)*smoothstep(0.05, 0.15, t)*(1 - smoothstep(0.9, 0.98, t)); } } }
   for(let i=1;i<N;i++) cum[i] = cum[i-1] + Math.hypot(path[i].x-path[i-1].x, path[i].z-path[i-1].z);
   total = cum[N-1];
   path.forEach((p,i) => { const k = gkey(Math.floor(p.x/CELL), Math.floor(p.z/CELL)); if(!grid.has(k)) grid.set(k, []); grid.get(k).push(i); });
@@ -1084,8 +1089,8 @@ function buildWorld(){
     }
   } else if(M.extra === 'spires'){
     const sm = new THREE.MeshStandardMaterial({ color: 0xb3aea2, roughness: 1, flatShading: true });
-    for(let i=0;i<26;i++){
-      const q = pickOff(8, 25, 200); if(!q) continue; const hh = rr(10, 28), rad = rr(2.2, 4.5);
+    for(let i=0;i<(M.spireN || 26);i++){
+      const q = pickOff(M.spireN ? 6 : 8, M.spireN ? 14 : 25, M.spireN ? 150 : 200); if(!q) continue; const hh = rr(10, 28), rad = rr(2.2, 4.5);
       const sg = new THREE.CylinderGeometry(rad*0.25, rad, hh, 8, 7); jitterGeo(sg, rad*0.75, 0.45, i*3.7); sg.computeVertexNormals();
       const m = new THREE.Mesh(sg, sm); m.scale.z = rr(0.6, 1);
       m.position.set(q[0], height(q[0], q[1]) + hh*0.42, q[1]); m.rotation.y = rand()*TAU; m.castShadow = true; world.add(m);

@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 const PUB = path.join(__dirname, 'public');
 const MAX_PER_ROOM = 40;
 const EMOTES = new Set(['', 'wave', 'heart', 'yaho']);
-const MOUNTAINS = ['bukhansan', 'seoraksan', 'jirisan', 'hallasan', 'naejangsan'];
+const MOUNTAINS = ['bukhansan', 'seoraksan', 'jirisan', 'hallasan', 'naejangsan', 'gongryong'];
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json' };
 
 const rooms = new Map(); // 'mountain/room' -> Map(id -> client)
