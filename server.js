@@ -41,7 +41,7 @@ const server = http.createServer((req, res) => {
 
 const cleanRoom = (r) => (String(r || 'lobby').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32)) || 'lobby';
 const num = (v, lo, hi, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
-const act = (a) => (a && typeof a === 'object' && typeof a.to === 'string' && /^[a-z0-9]{1,24}$/i.test(a.to))
+const act = (a) => (a && typeof a === 'object' && typeof a.to === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(a.to))
   ? { to: a.to, at: num(a.at, 0, 1e15), ok: a.ok ? 1 : 0 } : undefined;
 function sanitize(s) {
   if (!s || typeof s !== 'object') return null;
@@ -57,6 +57,10 @@ function sanitize(s) {
     si: s.si ? 1 : 0,
     gb: num(s.gb, 0, 255) | 0,
     ly: s.ly ? 1 : 0, lt: s.lt ? 1 : 0,
+    pt: typeof s.pt === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(s.pt) ? s.pt : undefined,
+    pn: typeof s.pn === 'string' ? s.pn.replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff<>]/g, '').trim().slice(0, 12) : undefined,
+    go: num(s.go, 0, 1e15),
+    rp: s.rp ? 1 : 0,
     cy: num(s.cy, -8, 8), cl: s.cl ? 1 : 0,
   };
 }
