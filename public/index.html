@@ -122,6 +122,16 @@
             font-family:inherit; font-size:15px; color:#fff; background:#b4532c; box-shadow:0 6px 20px rgba(120,40,10,0.35); animation:pulse 1.4s ease-in-out infinite; }
   #btnAct:disabled { background:#9a8f80; animation:none; }
   @keyframes pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.06); } }
+  #btnRest { position:absolute; right:18px; bottom:284px; pointer-events:auto; border:none; cursor:pointer; padding:13px 18px; border-radius:999px;
+             font-family:inherit; font-size:15px; color:#fff; background:#4f6b45; box-shadow:0 6px 20px rgba(30,50,25,0.3); }
+  #btnStand { position:absolute; left:50%; bottom:34px; transform:translateX(-50%); pointer-events:auto; border:none; cursor:pointer; padding:13px 26px; border-radius:999px;
+              font-family:inherit; font-size:15px; color:var(--ink); background:rgba(250,246,236,0.85); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); box-shadow:0 6px 20px rgba(40,50,35,0.15); }
+  #restMsg { position:absolute; left:50%; top:16%; transform:translateX(-50%); max-width:88vw; text-align:center; font-family:"Gowun Batang", serif; font-size:17px;
+             color:#fffaf0; text-shadow:0 2px 12px rgba(20,30,20,0.55); opacity:0; transition:opacity 1.6s; }
+  #restMsg.show { opacity:1; }
+  #hud #card, #hud #players, #hud #emotes, #hud #joy, #hud #btnAuto, #hud #topRight { transition:opacity .8s; }
+  #hud.resting #card, #hud.resting #players, #hud.resting #emotes, #hud.resting #joy, #hud.resting #btnAuto { opacity:0; pointer-events:none; }
+  #hud.resting #topRight { opacity:0.45; }
 </style>
 </head>
 <body>
@@ -142,6 +152,9 @@
   </div>
   <div id="players"></div>
   <button id="btnAct" class="hidden"></button>
+  <button id="btnRest" class="hidden">🪑 앉아서 쉬기</button>
+  <button id="btnStand" class="hidden">일어나기</button>
+  <div id="restMsg"></div>
   <div id="emotes">
     <button data-e="wave" aria-label="손 흔들기">👋</button>
     <button data-e="heart" aria-label="하트">❤️</button>
@@ -197,6 +210,7 @@
       <li>PC: WASD 또는 방향키, Shift로 빠르게</li>
       <li>화면을 드래그하면 둘러보기 · 두 손가락/휠로 거리 조절</li>
       <li>‘길 따라 걷기’를 켜면 알아서 등산로를 따라 올라가요</li>
+      <li>쉼터 벤치 가까이에서 ‘🪑 앉아서 쉬기’를 누르면 앉아서 경치를 볼 수 있어요</li>
       <li>오른쪽 위 문 버튼으로 산에서 나갔다가, 다시 들어오면 있던 자리에서 이어서 걸어요</li>
       <li>걷다 보면 다람쥐·산토끼·고라니·꿩이 튀어나와요. 가까이 가면 놀라서 달아나요</li>
       <li>길옆 어딘가에 보물 8개가 숨어 있어요. 반짝이는 곳으로 가까이 가면 주워져요</li>
@@ -564,8 +578,25 @@ const ribbons = [], benches = [], clouds = [];
 let world = null;
 let summitPos, summitY;
 
+let restSpots = [];
+function computeRestSpots(){
+  restSpots = [0.3, 0.56, 0.82].map(f => {
+    const p = pointAt(total*f); let ox = p.x, oz = p.z; const L = Math.hypot(ox, oz) || 1; ox /= L; oz /= L;
+    const x = p.x + ox*4.6, z = p.z + oz*4.6;
+    return { x, z, ox, oz, f };
+  });
+}
+function blocksView(x, z){
+  for(const r of restSpots){
+    const dx = x - r.x, dz = z - r.z, d = Math.hypot(dx, dz);
+    if(d < 7) return true;
+    if(d < 55 && (dx*r.ox + dz*r.oz)/d > 0.72) return true;
+  }
+  return false;
+}
 function buildWorld(){
   world = new THREE.Group(); scene.add(world);
+  computeRestSpots();
   /* terrain */
   const SIZE = 600, SEG = isTouch ? 230 : 280;
   const geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG); geo.rotateX(-Math.PI/2);
@@ -605,6 +636,7 @@ function buildWorld(){
     const r = 245*Math.sqrt(rand()), a = rand()*TAU, x = r*Math.cos(a), z = r*Math.sin(a);
     const n = nearest(x,z); if(n && n.d < 4.4) continue;
     if(Math.hypot(x,z) < 13) continue;
+    if(blocksView(x, z)) continue;
     const dn = fbm(x*0.03, z*0.03, 3)*0.5+0.5;
     if(rand() > 0.15 + dn*0.95) continue;
     const y = height(x,z); if(y > M.h*0.92 && rand() < 0.6) continue;
@@ -747,17 +779,24 @@ function buildWorld(){
     signAt(s, [{t:'↑ ' + M.peak + ' ' + fmtDist((total-s)*METERS), size:56}, {t:'↓ ' + (M.trailhead.length > 5 ? '입구' : M.trailhead) + ' ' + fmtDist(s*METERS), size:48}]);
   });
 
-  /* rest benches (쉼터) facing the view */
-  [0.36, 0.68].forEach(f => {
-    const p = pointAt(total*f); let ox = p.x, oz = p.z; const L = Math.hypot(ox,oz) || 1; ox/=L; oz/=L;
-    const x = p.x + ox*4.2, z = p.z + oz*4.2, y = height(x,z);
-    const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = Math.atan2(ox, oz);
-    const plank = new THREE.MeshLambertMaterial({ color: 0x9b7550 });
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.1, 0.5), plank); seat.position.y = 0.48; g.add(seat);
-    const back = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.42, 0.08), plank); back.position.set(0, 0.86, -0.24); back.rotation.x = -0.12; g.add(back);
-    [-0.8, 0.8].forEach(lx => { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.48, 0.45), wood); leg.position.set(lx, 0.24, 0); g.add(leg); });
-    g.traverse(o => { if(o.isMesh) o.castShadow = true; });
-    world.add(g); benches.push({ x, z, near: false });
+  /* rest areas (쉼터): wooden deck + bench facing the view */
+  const plank = new THREE.MeshStandardMaterial({ color: 0xa47b52, roughness: 0.9, map: getAssets().bark });
+  const deckM = new THREE.MeshStandardMaterial({ color: 0x8d6a47, roughness: 0.95 });
+  restSpots.forEach((r, ri) => {
+    const y = height(r.x, r.z), rot = Math.atan2(r.ox, r.oz);
+    const g = new THREE.Group(); g.position.set(r.x, y, r.z); g.rotation.y = rot;
+    for(let i=0;i<9;i++){ const pl = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.06, 0.3), deckM); pl.position.set(0, 0.04, -1.1 + i*0.32); pl.receiveShadow = true; g.add(pl); }
+    for(let i=0;i<4;i++){ const sl = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.06, 0.12), plank); sl.position.set(0, 0.5, -0.2 + i*0.14); g.add(sl); }
+    for(let i=0;i<3;i++){ const bk = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.1, 0.05), plank); bk.position.set(0, 0.68 + i*0.15, -0.3 - i*0.02); bk.rotation.x = -0.12; g.add(bk); }
+    [-0.85, 0.85].forEach(lx => { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.5), wood); leg.position.set(lx, 0.25, -0.02); g.add(leg);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.5), plank); arm.position.set(lx*1.08, 0.72, -0.02); g.add(arm); });
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 1.7, 8), wood); post.position.set(1.5, 0.85, -0.9); g.add(post);
+    const tex = textTex([{t:'쉼터', size:84, serif:true, b:true}, {t:M.name + ' · ' + ['첫째','둘째','셋째'][ri], size:40}], 384, 220, '#7a5a3a', '#fff6e2', 'rgba(0,0,0,0.22)');
+    const board = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.52, 0.05), [wood, wood, wood, wood, new THREE.MeshLambertMaterial({ map: tex }), wood]);
+    board.position.set(1.5, 1.55, -0.86); board.rotation.y = Math.PI; g.add(board);
+    g.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+    world.add(g);
+    benches.push({ x: r.x, z: r.z, y, ox: r.ox, oz: r.oz, rot, near: false, idx: ri });
   });
 
   /* summit: 정상석 + 돌탑 */
@@ -945,6 +984,11 @@ function animHiker(h, dt, spd, t){
   h.armL.rotation.x = -sw*0.8; h.armR.rotation.x = sw*0.8;
   h.upper.position.y = 0.62 + Math.abs(Math.sin(h.phase))*0.05*amt + Math.sin(t*2)*0.006;
   h.armR.rotation.z = 0.12; h.armL.rotation.z = -0.12;
+  if(h.sitting){
+    h.legL.rotation.x = -1.2; h.legR.rotation.x = -1.2;
+    h.armL.rotation.x = -0.45; h.armR.rotation.x = -0.45; h.armL.rotation.z = -0.25; h.armR.rotation.z = 0.25;
+    h.upper.position.y = 0.62 + Math.sin(t*1.4)*0.01;
+  }
   h.blinkT -= dt; const bl = h.blinkT < 0.12 ? 0.15 : 1; if(h.blinkT < 0) h.blinkT = 2.5 + Math.random()*3.5;
   if(h.eyes) h.eyes.forEach(e => e.scale.y = 1.15*bl);
   if(h.grabT > 0){ h.grabT -= dt; const k = Math.sin(Math.min(1, (0.7 - h.grabT)/0.7)*Math.PI); h.armR.rotation.x = -1.5*k; h.armR.rotation.z = 0.12 - 0.5*k; }
@@ -1261,6 +1305,7 @@ function syncPeers(peers){
     r.v = clamp(+pr.v || 0, 0, 8); r.el = clamp(+pr.el || 0, 0, 2000); r.tr = clamp(+pr.tr || 0, 0, 8) | 0; r.by = p.by;
     const ci = Math.abs(pr.c | 0) % JACKETS.length; if(r.c !== ci){ r.c = ci; r.h.jacketMat.color.setHex(JACKETS[ci]); }
     r.nick = cleanName(pr.n);
+    r.h.sitting = !!pr.si;
     if(r.name) processActions(r, pr, p.peer, false);
     if(!r.nick && p.by && !Online.names[p.by]) need.push(p.by);
     updateRemoteName(r);
@@ -1273,14 +1318,14 @@ function updateRemotes(dt, t){
   Online.remotes.forEach(r => {
     if(Math.hypot(r.tx - r.x, r.tz - r.z) > 30){ r.x = r.tx; r.z = r.tz; }
     r.x += (r.tx - r.x)*k; r.z += (r.tz - r.z)*k; r.f += angDiff(r.tf, r.f)*k;
-    r.h.root.position.set(r.x, height(r.x, r.z), r.z); r.h.root.rotation.y = r.f;
+    r.h.root.position.set(r.x, height(r.x, r.z) - (r.h.sitting ? 0.1 : 0), r.z); r.h.root.rotation.y = r.f;
     animHiker(r.h, dt, r.v, t); tickBubble(r.bubble, dt);
   });
 }
 function sendPresence(dt){
   if(!Online.room || !started) return;
   Online.sendT -= dt; if(Online.sendT > 0) return; Online.sendT = 0.1;
-  const o = { x: +px.toFixed(2), z: +pz.toFixed(2), f: +facing.toFixed(2), v: +player.spd.toFixed(1), c: myColor, n: myName, e: Online.emote, et: Online.emoteAt, el: ELEV(py), tr: tFoundNow, mt: M.id, j: myJob };
+  const o = { x: +px.toFixed(2), z: +pz.toFixed(2), f: +facing.toFixed(2), v: +player.spd.toFixed(1), c: myColor, n: myName, e: Online.emote, et: Online.emoteAt, el: ELEV(py), tr: tFoundNow, mt: M.id, j: myJob, si: Rest.on ? 1 : 0 };
   Object.assign(o, actionsForPresence());
   const key = JSON.stringify(o); if(key === Online.sentKey) return;
   Online.sentKey = key; Online.room.presence(o).catch(() => {});
@@ -1533,6 +1578,11 @@ function processActions(r, pr, peer, fresh){
     }
   }
 }
+function updateRestButton(){
+  const btn = $('btnRest'); const b = started && !Rest.on ? nearBench() : null;
+  const actShown = !$('btnAct').classList.contains('hidden');
+  btn.classList.toggle('hidden', !b || actShown);
+}
 function updateActionButton(dt){
   Act.cool = Math.max(0, Act.cool - dt);
   const btn = $('btnAct'); let target = null, kind = '';
@@ -1580,11 +1630,34 @@ const camTarget = new THREE.Vector3();
 
 function setAuto(v){ auto = v; $('btnAuto').classList.toggle('on', v); $('btnAuto').innerHTML = '<span class="dot"></span>' + (v ? '걷는 중… (멈추기)' : '길 따라 걷기'); }
 function resetToStart(){
+  if(typeof Rest !== 'undefined' && Rest.on){ Rest.on = false; player.sitting = false; $('hud').classList.remove('resting'); $('btnStand').classList.add('hidden'); }
   const p = pointAt(2.5), side = (Math.random()*2 - 1)*1.3; px = p.x - p.tz*side; pz = p.z + p.tx*side; facing = Math.atan2(p.tx, p.tz); yaw = facing; sPlayer = 2.5;
   py = height(px,pz); summitShown = false; startTime = clock; camInit = false; for(const k in flags) delete flags[k];
   benches.forEach(b => b.near = false);
 }
 
+const Rest = { on: false, b: null, seat: 0, msgT: 0 };
+function nearBench(){ let best = null, bd = 3.2; benches.forEach(b => { const d = Math.hypot(b.x - px, b.z - pz); if(d < bd){ bd = d; best = b; } }); return best; }
+function sitDown(b){
+  if(!b) return;
+  setAuto(false);
+  // take the free side of the bench if someone is already sitting there
+  const lat = [b.oz, -b.ox]; let seat = -0.45;
+  Online.remotes.forEach(r => { if(r.h.sitting && Math.hypot(r.x - (b.x + lat[0]*seat), r.z - (b.z + lat[1]*seat)) < 0.4) seat = 0.45; });
+  Rest.on = true; Rest.b = b; Rest.seat = seat; Rest.sx = b.x + lat[0]*seat + b.ox*0.02; Rest.sz = b.z + lat[1]*seat + b.oz*0.02;
+  player.sitting = true; yaw = b.rot; camInit = false; lastDrag = -10;
+  $('hud').classList.add('resting'); $('btnStand').classList.remove('hidden');
+  const msg = $('restMsg'); msg.textContent = '🍃 ' + M.name + ' 쉼터 · 바람 소리를 들으며 잠시 쉬어가요'; msg.classList.add('show');
+  clearTimeout(Rest.msgT); Rest.msgT = setTimeout(() => msg.classList.remove('show'), 5000);
+  Online.sendT = 0;
+}
+function standUp(){
+  if(!Rest.on) return;
+  Rest.on = false; player.sitting = false;
+  const b = Rest.b; px = b.x + b.ox*-1.2; pz = b.z + b.oz*-1.2; py = height(px, pz); facing = b.rot + Math.PI;
+  $('hud').classList.remove('resting'); $('btnStand').classList.add('hidden'); $('restMsg').classList.remove('show');
+  Online.sendT = 0;
+}
 function updatePlayer(dt, t){
   let ix=0, iy=0;
   if(keys.has('KeyW')||keys.has('ArrowUp')) iy += 1;
@@ -1594,6 +1667,16 @@ function updatePlayer(dt, t){
   ix += joy.x; iy += joy.y;
   let il = Math.hypot(ix,iy); if(il > 1){ ix/=il; iy/=il; il = 1; }
   const run = keys.has('ShiftLeft') || keys.has('ShiftRight');
+  if(Rest.on){
+    if(il > 0.5){ standUp(); }
+    else {
+      const b = Rest.b; px = Rest.sx; pz = Rest.sz; py = b.y - 0.1; facing = b.rot;
+      player.root.position.set(px, py, pz); player.root.rotation.y = facing;
+      animHiker(player, dt, 0, t);
+      if(t - lastDrag > 2.5) yaw += angDiff(b.rot + Math.sin(t*0.1)*0.22, yaw) * Math.min(1, dt*0.6);
+      return;
+    }
+  }
   let mx=0, mz=0, spd=0;
   if(paused){ /* resting */ }
   else if(il > 0.08){
@@ -1629,7 +1712,7 @@ function updatePlayer(dt, t){
   milestone('m1', f > 0.2, '바람에 나뭇잎이 살랑거려요.');
   milestone('m2', f > 0.5, '절반을 왔어요. 숨 한 번 크게 쉬어요.');
   milestone('m3', f > 0.82, '정상이 얼마 남지 않았어요.');
-  benches.forEach(b => { const d = Math.hypot(b.x-px, b.z-pz); if(d < 5 && !b.near){ b.near = true; toast('쉼터 · 잠깐 앉아 풍경을 바라봐요'); } else if(d > 14) b.near = false; });
+  benches.forEach(b => { const d = Math.hypot(b.x-px, b.z-pz); if(d < 5 && !b.near){ b.near = true; toast('🪑 쉼터예요 · 벤치에 앉아 풍경을 볼 수 있어요'); } else if(d > 14) b.near = false; });
   if(!summitShown && Math.hypot(summitPos.x-px, summitPos.z-pz) < 6.5){
     summitShown = true; setAuto(false);
     const sec = Math.round(clock - startTime), mm = Math.floor(sec/60), ss = sec%60;
@@ -1641,9 +1724,9 @@ function updatePlayer(dt, t){
 
 let viewShifted = false;
 function updateCamera(dt){
-  const pv = !started, D = pv ? 8.5 : dist, P = pv ? 0.1 : pitch;
+  const pv = !started, rs = Rest.on && started, D = pv ? 8.5 : rs ? 4.6 : dist, P = pv ? 0.1 : rs ? 0.42 : pitch;
   if(pv !== viewShifted){ viewShifted = pv; if(pv) camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight*0.27, innerWidth, innerHeight); else camera.clearViewOffset(); }
-  const tx = px, ty = py + (pv ? 1.05 : 1.5), tz = pz;
+  const tx = px, ty = py + (pv ? 1.05 : rs ? 1.9 : 1.5), tz = pz;
   const cp = Math.cos(P), sp = Math.sin(P);
   let cx = tx - Math.sin(yaw)*cp*D, cy = ty + sp*D, cz = tz - Math.cos(yaw)*cp*D;
   const gh = height(cx,cz) + 0.9; if(cy < gh) cy = gh;
@@ -1745,7 +1828,9 @@ $('btnTreasure').addEventListener('click', openTreasureBook);
 $('btnTbookClose').addEventListener('click', () => { $('tbook').classList.add('hidden'); tNewIds.clear(); });
 $('btnAuto').addEventListener('click', () => setAuto(!auto));
 $('btnAct').addEventListener('click', doAction);
-addEventListener('keydown', e => { if(started && e.code === 'KeyE' && e.target !== $('nick')) doAction(); });
+$('btnRest').addEventListener('click', () => sitDown(nearBench()));
+$('btnStand').addEventListener('click', standUp);
+addEventListener('keydown', e => { if(!started || e.target === $('nick')) return; if(e.code === 'KeyE'){ if(Act.target) doAction(); else if(Rest.on) standUp(); else sitDown(nearBench()); } });
 $('btnSound').addEventListener('click', () => { const on = Sound.toggle(); $('btnSound').innerHTML = on ? ICON_ON : ICON_OFF; });
 $('btnHelp').addEventListener('click', () => $('help').classList.remove('hidden'));
 $('btnHelpClose').addEventListener('click', () => $('help').classList.add('hidden'));
@@ -1790,7 +1875,7 @@ function frame(now){
   sunGlow.position.copy(camera.position).addScaledVector(sunDir, 700);
   sun.position.set(px + sunDir.x*120, py + sunDir.y*120, pz + sunDir.z*120); sun.target.position.set(px, py, pz); sun.target.updateMatrixWorld();
   if(started){ updateHUD(dt); updatePlayers(dt); }
-  updateActionButton(dt);
+  updateActionButton(dt); updateRestButton();
   renderer.render(scene, camera);
 }
 
@@ -1842,6 +1927,7 @@ function switchMountain(id){
 }
 let resumeOk = false;
 function showStartScreen(reset){
+  if(Rest.on) standUp();
   if(reset){ resetToStart(); resetTreasures(); resumeOk = false; } else resumeOk = true;
   goAway();
   pollCounts();
