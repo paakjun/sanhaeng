@@ -851,7 +851,7 @@ const JOB_IDS = Object.keys(JOBS);
 const JOB_ALIAS = { bandit: 'dokkaebi', influencer: 'hiker' };
 const jobOf = j => JOBS[j] ? j : (JOB_ALIAS[j] || 'hiker');
 const V2 = (x, y) => new THREE.Vector2(x, y);
-function latheSmooth(pts, segs, div){ const c = new THREE.SplineCurve(pts.map(q => V2(q[0], q[1]))); return new THREE.LatheGeometry(c.getPoints(div || 28), segs || 32); }
+function latheSmooth(pts, segs, div){ if(pts[0][1] > pts[pts.length-1][1]) pts = pts.slice().reverse(); const c = new THREE.SplineCurve(pts.map(q => V2(q[0], q[1]))); return new THREE.LatheGeometry(c.getPoints(div || 28), segs || 32); }
 function capsuleGeo(r, len, segs){
   const pts = [];
   for(let i=0;i<=8;i++){ const a = -Math.PI/2 + i/8*Math.PI/2; pts.push(V2(Math.max(0.0001, Math.cos(a)*r), -len/2 + Math.sin(a)*r)); }
@@ -882,6 +882,12 @@ function makeHiker(o){
     a(S(0.065, 16, 12), Mt(0xf4a9a4, 0x3a1010, 0.8), 0.22*sx, headY - 0.09, 0.29, 1, 0.55, 0.35); // blush
   });
   a(new THREE.TorusGeometry(0.045, 0.012, 8, 20, Math.PI), dark, 0, headY - 0.1, 0.345, 1, 1, 1, Math.PI, 0, 0); // smile
+  if(job !== 'dokkaebi'){
+    // hair: covers the top and back of the head so it isn't a bald ball from behind
+    const hairM = Mt(job === 'ranger' ? 0x2e2620 : 0x3b2a1f, 0, 0.75);
+    const hair = a(new THREE.SphereGeometry(0.392, 36, 20, 0, TAU, 0, Math.PI*0.52), hairM, 0, headY + 0.005, -0.012, 1, 1.02, 1.03, -0.55, 0, 0);
+    a(S(0.2, 24, 16), hairM, 0, headY - 0.12, -0.2, 1.55, 1.0, 0.9);   // nape
+  }
   if(job === 'hiker'){
     const hatM = Mt(o.hat || 0xf2c14e);
     a(latheSmooth([[0.001,0.2],[0.2,0.2],[0.29,0.15],[0.33,0.05],[0.36,-0.02],[0.5,-0.06],[0.56,-0.09],[0.52,-0.1],[0.36,-0.06],[0.001,-0.06]], 40, 40), hatM, 0, headY + 0.26, 0);
