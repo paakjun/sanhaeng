@@ -81,7 +81,7 @@ wss.on('connection', (ws, req) => {
   const me = { ws, s: null, tokens: 20, last: Date.now() };
   room.set(id, me);
   ws.isAlive = true;
-  send(ws, { t: 'welcome', id, room: roomName, mt, peers: [...room].filter(([k, c]) => k !== id && c.s).map(([k, c]) => ({ id: k, s: c.s })) });
+  send(ws, { t: 'welcome', id, now: Date.now(), room: roomName, mt, peers: [...room].filter(([k, c]) => k !== id && c.s).map(([k, c]) => ({ id: k, s: c.s })) });
 
   ws.on('pong', () => { ws.isAlive = true; });
   ws.on('message', (buf) => {
