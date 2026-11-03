@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>산행</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#2f3b2f; --paper:#f6f0e2; --moss:#4f6b45; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#dfe3d6; font-family:"Gowun Dodum", sans-serif; color:var(--ink); touch-action:none; user-select:none; -webkit-user-select:none; }
+  canvas#c { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+  .hidden { display:none !important; }
+
+  #hud { position:fixed; inset:0; pointer-events:none; }
+  #card { position:absolute; left:14px; top:14px; padding:12px 16px 12px; min-width:210px; border-radius:16px;
+          background:rgba(250,246,236,0.62); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+          box-shadow:0 6px 24px rgba(40,50,35,0.12); }
+  #card .title { font-family:"Gowun Batang", serif; font-weight:700; font-size:20px; letter-spacing:0.25em; }
+  .bar { margin:8px 0 6px; height:6px; border-radius:6px; background:rgba(79,107,69,0.18); overflow:hidden; }
+  #barFill { height:100%; width:0%; background:linear-gradient(90deg,#8fae6b,#d88a3c); border-radius:6px; transition:width .3s; }
+  #stats { font-size:13px; opacity:0.85; }
+
+  #topRight { position:absolute; right:14px; top:14px; display:flex; gap:8px; pointer-events:auto; }
+  .icon { width:42px; height:42px; border-radius:50%; border:none; cursor:pointer; display:grid; place-items:center;
+          background:rgba(250,246,236,0.7); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); color:var(--ink);
+          box-shadow:0 4px 16px rgba(40,50,35,0.12); font-family:inherit; font-size:18px; }
+  .icon svg { width:20px; height:20px; }
+
+  #btnAuto { position:absolute; right:18px; bottom:26px; pointer-events:auto; border:none; cursor:pointer;
+             padding:14px 22px; border-radius:999px; font-family:inherit; font-size:15px; color:var(--ink);
+             background:rgba(250,246,236,0.78); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+             box-shadow:0 6px 20px rgba(40,50,35,0.15); transition:background .25s, color .25s; }
+  #btnAuto.on { background:#4f6b45; color:#f6f0e2; }
+  #btnAuto .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:currentColor; margin-right:8px; opacity:.6; vertical-align:middle; }
+
+  #joy { position:absolute; left:26px; bottom:26px; width:124px; height:124px; border-radius:50%; pointer-events:auto;
+         background:rgba(250,246,236,0.28); border:1.5px solid rgba(250,246,236,0.7); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); touch-action:none; }
+  #knob { position:absolute; left:50%; top:50%; width:52px; height:52px; margin:-26px 0 0 -26px; border-radius:50%;
+          background:rgba(250,246,236,0.9); box-shadow:0 4px 14px rgba(40,50,35,0.2); }
+
+  #toast { max-width:92vw; overflow:hidden; text-overflow:ellipsis; position:absolute; left:50%; top:18%; transform:translate(-50%, 8px); padding:10px 20px; border-radius:999px;
+           background:rgba(250,246,236,0.75); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+           font-size:15px; opacity:0; transition:opacity .8s, transform .8s; white-space:nowrap; }
+  #toast.show { opacity:1; transform:translate(-50%, 0); }
+
+  #start { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+           background:linear-gradient(180deg, rgba(246,240,226,0.05) 0%, rgba(36,52,38,0.55) 100%); color:#fffaf0; padding:24px; transition:opacity 1.2s; }
+  #start h1 { font-family:"Gowun Batang", serif; font-weight:700; font-size:clamp(56px, 14vw, 104px); letter-spacing:0.35em; margin:0 0 0 0.35em;
+              text-shadow:0 4px 30px rgba(20,30,20,0.35); }
+  #start p { font-size:16px; line-height:1.7; margin:14px 0 22px; opacity:.95; text-shadow:0 2px 10px rgba(20,30,20,0.4); }
+  #start button { border:none; cursor:pointer; padding:15px 36px; border-radius:999px; font-family:inherit; font-size:17px;
+                  background:#f6f0e2; color:#2f4a35; box-shadow:0 10px 30px rgba(20,30,20,0.25); }
+  #start small { margin-top:22px; font-size:13px; opacity:.85; line-height:1.7; text-shadow:0 2px 8px rgba(20,30,20,0.4); }
+  #loading { font-size:14px; opacity:.9; }
+
+  .modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(30,40,30,0.25); padding:20px; }
+  .sheet { max-width:380px; width:100%; background:rgba(250,246,236,0.94); border-radius:22px; padding:26px 24px 20px;
+           box-shadow:0 20px 50px rgba(20,30,20,0.25); text-align:center; }
+  .sheet h2 { font-family:"Gowun Batang", serif; margin:0 0 8px; font-size:24px; letter-spacing:0.08em; }
+  .sheet p { line-height:1.7; font-size:15px; margin:8px 0; }
+  .sheet .row { display:flex; gap:10px; justify-content:center; margin-top:18px; flex-wrap:wrap; }
+  .sheet button { border:none; cursor:pointer; padding:12px 20px; border-radius:999px; font-family:inherit; font-size:15px; background:#e9e1cd; color:var(--ink); }
+  .sheet button.primary { background:#4f6b45; color:#f6f0e2; }
+  .sheet ul { text-align:left; padding-left:18px; margin:8px 0; line-height:1.75; font-size:14px; }
+  .sheet h3 { text-align:left; font-size:14px; margin:14px 0 2px; color:#4f6b45; }
+  #players { position:absolute; left:14px; top:116px; padding:9px 14px; border-radius:14px; min-width:150px; max-width:230px;
+             background:rgba(250,246,236,0.5); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); font-size:13px; line-height:1.65; }
+  #players .head { font-size:12px; opacity:.7; margin-bottom:2px; }
+  #players .row { display:flex; align-items:center; gap:7px; white-space:nowrap; overflow:hidden; }
+  #players .dot { width:9px; height:9px; border-radius:50%; flex:none; }
+  #players .el { margin-left:auto; padding-left:10px; opacity:.6; font-size:12px; }
+  #emotes { position:absolute; right:18px; bottom:94px; display:flex; flex-direction:column; gap:10px; pointer-events:auto; }
+  #emotes button { width:50px; height:50px; border-radius:50%; border:none; cursor:pointer; font-size:21px; font-family:inherit; color:var(--ink);
+                   background:rgba(250,246,236,0.78); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); box-shadow:0 4px 16px rgba(40,50,35,0.15); }
+  #emotes button.txt { font-family:"Gowun Batang", serif; font-weight:700; font-size:14px; color:#b4532c; }
+  .setup { display:flex; flex-direction:column; align-items:center; gap:14px; margin-bottom:24px; }
+  .setup input { width:220px; padding:12px 18px; border-radius:999px; border:1.5px solid rgba(255,255,255,0.7); background:rgba(250,246,236,0.9);
+                 font-family:inherit; font-size:16px; text-align:center; color:#2f4a35; outline:none; user-select:text; -webkit-user-select:text; }
+  .nickrow { display:flex; align-items:center; gap:8px; }
+  #start .dice { width:46px; height:46px; padding:0; font-size:20px; display:grid; place-items:center; }
+  .swatches { display:flex; gap:12px; }
+  .swatch { width:30px; height:30px; border-radius:50%; border:2px solid rgba(255,255,255,0.55); cursor:pointer; padding:0; transition:transform .15s; }
+  #start .swatch { padding:0; box-shadow:none; }
+  #start .swatch.sel { box-shadow:0 0 0 3px rgba(255,255,255,0.35); }
+  .swatch.sel { border-color:#fff; box-shadow:0 0 0 3px rgba(255,255,255,0.35); transform:scale(1.15); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="card">
+    <div class="title">산행</div>
+    <div class="bar"><div id="barFill"></div></div>
+    <div id="stats">해발 -m · 정상까지 -</div>
+  </div>
+  <div id="topRight">
+    <button id="btnSound" class="icon" aria-label="소리 켜기/끄기"></button>
+    <button id="btnInvite" class="icon" aria-label="친구 초대 링크 복사"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></button>
+    <button id="btnHelp" class="icon" aria-label="도움말">?</button>
+  </div>
+  <div id="players"></div>
+  <div id="emotes">
+    <button data-e="wave" aria-label="손 흔들기">👋</button>
+    <button data-e="heart" aria-label="하트">❤️</button>
+    <button data-e="yaho" class="txt" aria-label="야호">야호</button>
+  </div>
+  <button id="btnAuto"><span class="dot"></span>길 따라 걷기</button>
+  <div id="joy" class="hidden"><div id="knob"></div></div>
+  <div id="toast"></div>
+</div>
+
+<div id="start">
+  <h1>산행</h1>
+  <p>새소리와 바람 소리를 들으며<br>등산로를 따라 천천히, 정상까지.</p>
+  <div class="setup">
+    <div class="nickrow"><input id="nick" maxlength="10" placeholder="산에서 쓸 이름" autocomplete="off" enterkeyhint="done"><button id="btnDice" class="dice" aria-label="이름 다시 뽑기">🎲</button></div>
+    <div class="swatches" id="swatches"></div>
+  </div>
+  <button id="btnStart" disabled>숲을 만드는 중…</button>
+  <small id="hint"><span id="roomLine"></span><br>이어폰을 끼면 더 좋아요</small>
+</div>
+
+<div id="summit" class="modal hidden">
+  <div class="sheet">
+    <h2>정상이에요</h2>
+    <p id="summitText">수고했어요.</p>
+    <div class="row">
+      <button id="btnStay" class="primary">조금 더 머물기</button>
+      <button id="btnRestart">처음부터 다시 오르기</button>
+    </div>
+  </div>
+</div>
+
+<div id="help" class="modal hidden">
+  <div class="sheet">
+    <h2>산행 안내</h2>
+    <h3>걷기</h3>
+    <ul>
+      <li>휴대폰: 왼쪽 아래 동그라미를 밀어서 걷기</li>
+      <li>PC: WASD 또는 방향키, Shift로 빠르게</li>
+      <li>화면을 드래그하면 둘러보기 · 두 손가락/휠로 거리 조절</li>
+      <li>‘길 따라 걷기’를 켜면 알아서 등산로를 따라 올라가요</li>
+    </ul>
+    <h3>함께 걷기</h3>
+    <ul>
+      <li>같은 링크(?room=이름)로 들어온 사람끼리 같은 산에서 만나요</li>
+      <li>오른쪽 위 🔗 버튼으로 초대 링크를 복사할 수 있어요</li>
+      <li>오른쪽 👋 ❤️ 야호 버튼으로 인사할 수 있어요</li>
+      <li>아무도 없을 땐 산들·솔바람·다람쥐가 같이 걸어줘요</li>
+    </ul>
+    <div class="row"><button id="btnHelpClose" class="primary">닫기</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+const TAU = Math.PI * 2;
+const isTouch = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window);
+
+/* ---------- small math helpers ---------- */
+let seed = 20261103;
+function rand(){ seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+function rr(a,b){ return a + (b-a)*rand(); }
+function pick(arr){ return arr[Math.floor(rand()*arr.length)]; }
+function hash2(x,y){ const s = Math.sin(x*127.1 + y*311.7) * 43758.5453123; return s - Math.floor(s); }
+function vnoise(x,y){
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x-xi, yf = y-yi;
+  const u = xf*xf*(3-2*xf), v = yf*yf*(3-2*yf);
+  const a = hash2(xi,yi), b = hash2(xi+1,yi), c = hash2(xi,yi+1), d = hash2(xi+1,yi+1);
+  return a + (b-a)*u + (c-a)*v + (a-b-c+d)*u*v;
+}
+function fbm(x,y,o){ o = o||4; let s=0, a=0.5, f=1; for(let i=0;i<o;i++){ s += a*(vnoise(x*f,y*f)*2-1); f*=2.03; a*=0.5; } return s; }
+function smoothstep(a,b,x){ const t = Math.min(1, Math.max(0, (x-a)/(b-a))); return t*t*(3-2*t); }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function angDiff(a,b){ return Math.atan2(Math.sin(a-b), Math.cos(a-b)); }
+
+/* ---------- terrain shape ---------- */
+function hRaw(x,z){
+  const r = Math.hypot(x,z);
+  const mountain = 78 * Math.exp(-(r*r)/(2*82*82));
+  const ridge = fbm(x*0.008+3.1, z*0.008-1.7, 4) * 20 * smoothstep(8, 60, r);
+  const hills = (fbm(x*0.006+9.0, z*0.006+4.0, 3)*0.5+0.5) * 55 * smoothstep(200, 330, r);
+  const small = fbm(x*0.06, z*0.06, 3) * 1.4;
+  return mountain + ridge + hills + small;
+}
+
+/* ---------- the trail ---------- */
+const N = 900, path = [], ph = new Float32Array(N), cum = new Float32Array(N);
+for(let i=0;i<N;i++){
+  const t = i/(N-1);
+  const a = 0.6 + t*TAU*1.45 + 0.25*Math.sin(t*9);
+  const r = 1.5 + 168*Math.pow(1-t, 1.05) + 4*Math.sin(t*31)*(1-t);
+  path.push({ x: r*Math.cos(a), z: r*Math.sin(a) });
+}
+for(let i=0;i<N;i++) ph[i] = hRaw(path[i].x, path[i].z);
+for(let pass=0; pass<8; pass++){
+  const tmp = Float32Array.from(ph);
+  for(let i=0;i<N;i++){ let s=0,c=0; for(let j=i-8;j<=i+8;j++){ if(j>=0&&j<N){ s+=tmp[j]; c++; } } ph[i]=s/c; }
+}
+for(let i=1;i<N;i++) cum[i] = cum[i-1] + Math.hypot(path[i].x-path[i-1].x, path[i].z-path[i-1].z);
+const total = cum[N-1];
+
+const CELL = 8, grid = new Map();
+const gkey = (cx,cz) => cx*10007 + cz;
+path.forEach((p,i) => { const k = gkey(Math.floor(p.x/CELL), Math.floor(p.z/CELL)); if(!grid.has(k)) grid.set(k, []); grid.get(k).push(i); });
+
+function nearest(x,z){
+  const cx = Math.floor(x/CELL), cz = Math.floor(z/CELL);
+  let bd = 1e18, bi = -1;
+  for(let dx=-1; dx<=1; dx++) for(let dz=-1; dz<=1; dz++){
+    const arr = grid.get(gkey(cx+dx, cz+dz)); if(!arr) continue;
+    for(const i of arr){ const p = path[i]; const d = (p.x-x)*(p.x-x) + (p.z-z)*(p.z-z); if(d<bd){ bd=d; bi=i; } }
+  }
+  if(bi < 0) return null;
+  let best = { d: Math.sqrt(bd), s: cum[bi], h: ph[bi] };
+  for(const j of [bi-1, bi]){
+    if(j<0 || j+1>=N) continue;
+    const a = path[j], b = path[j+1], abx = b.x-a.x, abz = b.z-a.z, L2 = abx*abx + abz*abz;
+    let t = ((x-a.x)*abx + (z-a.z)*abz) / L2; t = clamp(t,0,1);
+    const px = a.x+abx*t, pz = a.z+abz*t, d = Math.hypot(x-px, z-pz);
+    if(d < best.d) best = { d, s: cum[j] + (cum[j+1]-cum[j])*t, h: ph[j] + (ph[j+1]-ph[j])*t };
+  }
+  return best;
+}
+function blendH(raw, n){ if(!n || n.d > 7.5) return raw; const w = 1 - smoothstep(2.0, 7.0, n.d); return raw + (n.h - 0.1 - raw)*w; }
+function height(x,z){ return blendH(hRaw(x,z), nearest(x,z)); }
+function pointAt(s){
+  s = clamp(s, 0, total);
+  let lo=0, hi=N-1; while(hi-lo>1){ const m=(lo+hi)>>1; if(cum[m] <= s) lo=m; else hi=m; }
+  const seg = (cum[hi]-cum[lo]) || 1, f = (s-cum[lo])/seg, a = path[lo], b = path[hi];
+  return { x: a.x+(b.x-a.x)*f, z: a.z+(b.z-a.z)*f, tx: (b.x-a.x)/seg, tz: (b.z-a.z)/seg };
+}
+const ELEV = y => Math.round(180 + y*8.5);
+const METERS = 2.4;
+
+/* ---------- renderer / scene ---------- */
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isTouch ? 1.6 : 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const FOG = 0xdfe3d6;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(FOG);
+scene.fog = new THREE.Fog(FOG, 70, 520);
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 2000);
+
+const hemi = new THREE.HemisphereLight(0xd9ecff, 0x6b5a3a, 0.62); scene.add(hemi);
+scene.add(new THREE.AmbientLight(0xffffff, 0.12));
+const sun = new THREE.DirectionalLight(0xfff0d4, 0.95);
+sun.castShadow = true;
+sun.shadow.mapSize.set(isTouch ? 1024 : 2048, isTouch ? 1024 : 2048);
+Object.assign(sun.shadow.camera, { left:-42, right:42, top:42, bottom:-42, near:1, far:320 });
+sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
+scene.add(sun); scene.add(sun.target);
+const sunDir = new THREE.Vector3(0.55, 0.62, 0.38).normalize();
+
+/* sky dome */
+const sky = new THREE.Mesh(new THREE.SphereGeometry(900, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { top: { value: new THREE.Color(0x7aafdc) }, hor: { value: new THREE.Color(0xf1e3c8) } },
+  vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader: 'uniform vec3 top; uniform vec3 hor; varying vec3 vP; void main(){ float h = max(vP.y,0.0); vec3 c = mix(hor, top, pow(h,0.55)); gl_FragColor = vec4(c,1.0); }'
+}));
+sky.renderOrder = -1; scene.add(sky);
+
+/* soft sun glow */
+function glowTex(){
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  const g = x.createRadialGradient(64,64,0,64,64,64);
+  g.addColorStop(0,'rgba(255,250,230,1)'); g.addColorStop(0.15,'rgba(255,240,200,0.8)'); g.addColorStop(1,'rgba(255,230,180,0)');
+  x.fillStyle = g; x.fillRect(0,0,128,128); return new THREE.CanvasTexture(c);
+}
+const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), blending: THREE.AdditiveBlending, depthWrite: false, fog: false, transparent: true }));
+sunGlow.scale.set(220,220,1); scene.add(sunGlow);
+
+/* shared wind uniforms for swaying trees */
+const U = { uTime: { value: 0 }, uWind: { value: 1 } };
+function swayMaterial(params){
+  const m = new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.92, metalness: 0, flatShading: true }, params));
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = U.uTime; sh.uniforms.uWind = U.uWind;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', 'uniform float uTime; uniform float uWind;\n#include <common>')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+          float ph = instanceMatrix[3].x*0.21 + instanceMatrix[3].z*0.17;
+        #else
+          float ph = 0.0;
+        #endif
+        float hgt = max(position.y - 1.0, 0.0);
+        float sw = sin(uTime*1.3 + ph)*0.6 + sin(uTime*2.9 + ph*1.7)*0.22;
+        transformed.x += sw * uWind * hgt * 0.055;
+        transformed.z += cos(uTime*1.05 + ph)*0.35 * uWind * hgt * 0.045;`);
+  };
+  return m;
+}
+
+/* ---------- build the world ---------- */
+const dummy = new THREE.Object3D();
+function setInst(mesh, i, x, y, z, ry, s, sy, rx, rz){
+  dummy.position.set(x,y,z); dummy.rotation.set(rx||0, ry||0, rz||0); dummy.scale.set(s, s*(sy||1), s); dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix);
+}
+function instanced(geo, mat, count, opts){
+  const m = new THREE.InstancedMesh(geo, mat, Math.max(1,count));
+  m.count = count; m.frustumCulled = false;
+  if(opts && opts.cast) m.castShadow = true;
+  if(opts && opts.receive) m.receiveShadow = true;
+  scene.add(m); return m;
+}
+function textTex(lines, w, h, bg, fg, border){
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+  x.fillStyle = bg; x.fillRect(0,0,w,h);
+  if(border){ x.strokeStyle = border; x.lineWidth = 12; x.strokeRect(6,6,w-12,h-12); }
+  x.fillStyle = fg; x.textAlign = 'center'; x.textBaseline = 'middle';
+  const lh = h / lines.length;
+  lines.forEach((l,i) => { x.font = (l.b ? '700 ' : '') + (l.size||60) + 'px ' + (l.serif ? '"Gowun Batang", serif' : '"Gowun Dodum", sans-serif'); x.fillText(l.t, w/2, lh*(i+0.5)); });
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
+}
+const fmtDist = m => m >= 1000 ? (m/1000).toFixed(1) + 'km' : Math.round(m/10)*10 + 'm';
+
+const ribbons = [], benches = [], clouds = [];
+let summitPos, summitY;
+
+function buildWorld(){
+  /* terrain */
+  const SIZE = 600, SEG = isTouch ? 230 : 280;
+  const geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG); geo.rotateX(-Math.PI/2);
+  const pos = geo.attributes.position, col = new Float32Array(pos.count*3);
+  const g1=[0.44,0.58,0.29], g2=[0.31,0.46,0.22], dry=[0.66,0.58,0.34], rust=[0.62,0.42,0.24], rock=[0.52,0.5,0.45], dirt=[0.66,0.54,0.37], edge=[0.42,0.40,0.26];
+  const mix = (a,b,t) => [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t];
+  for(let i=0;i<pos.count;i++){
+    const x = pos.getX(i), z = pos.getZ(i), n = nearest(x,z), y = blendH(hRaw(x,z), n);
+    pos.setY(i, y);
+    let c = mix(g1, g2, fbm(x*0.04, z*0.04, 3)*0.5+0.5);
+    c = mix(c, dry, smoothstep(0.1, 0.45, fbm(x*0.02+5, z*0.02-3, 3)) * 0.7);
+    c = mix(c, rust, smoothstep(0.2, 0.5, fbm(x*0.013-7, z*0.013+2, 3)) * 0.45);
+    c = mix(c, rock, smoothstep(60, 82, y) * 0.65);
+    if(n){
+      c = mix(c, edge, (1 - smoothstep(2.2, 3.6, n.d)) * 0.5);
+      c = mix(c, dirt, 1 - smoothstep(1.2, 2.5, n.d));
+    }
+    const v = (hash2(x*3.1, z*2.7) - 0.5) * 0.05;
+    col[i*3] = c[0]+v; col[i*3+1] = c[1]+v; col[i*3+2] = c[2]+v;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  const ground = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
+  ground.receiveShadow = true; scene.add(ground);
+
+  /* trees */
+  const pines = [], leafy = [];
+  for(let k=0; k<9000 && pines.length + leafy.length < 1900; k++){
+    const r = 245*Math.sqrt(rand()), a = rand()*TAU, x = r*Math.cos(a), z = r*Math.sin(a);
+    const n = nearest(x,z); if(n && n.d < 4.4) continue;
+    if(Math.hypot(x,z) < 13) continue;
+    const dn = fbm(x*0.03, z*0.03, 3)*0.5+0.5;
+    if(rand() > 0.15 + dn*0.95) continue;
+    const y = height(x,z); if(y > 74 && rand() < 0.6) continue;
+    const t = { x, y: y-0.15, z, ry: rand()*TAU, s: rr(0.8, 1.45), sy: rr(0.9, 1.25) };
+    (rand() < 0.42 + smoothstep(40, 75, y)*0.3 ? pines : leafy).push(t);
+  }
+  const all = pines.concat(leafy);
+  const trunkGeo = new THREE.CylinderGeometry(0.12, 0.2, 1.8, 6); trunkGeo.translate(0, 0.9, 0);
+  const trunks = instanced(trunkGeo, new THREE.MeshLambertMaterial({ color: 0x5a4130 }), all.length, { cast: true });
+  all.forEach((t,i) => setInst(trunks, i, t.x, t.y, t.z, t.ry, t.s, t.sy));
+
+  const foliage = swayMaterial({ color: 0xffffff });
+  const pineGreens = ['#2f5d3a','#3b6b40','#29523a','#355f34','#456f3e'].map(c => new THREE.Color(c));
+  const layers = [[1.35, 1.9, 2.2], [1.05, 1.6, 3.2], [0.72, 1.3, 4.1]];
+  layers.forEach(([rad, hh, yy], li) => {
+    const g = new THREE.ConeGeometry(rad, hh, 7); g.translate(0, yy, 0);
+    const m = instanced(g, foliage, pines.length, { cast: true });
+    pines.forEach((t,i) => { setInst(m, i, t.x, t.y, t.z, t.ry + li, t.s, t.sy); const c = pineGreens[i % pineGreens.length].clone(); c.offsetHSL(0, 0, li*0.025); m.setColorAt(i, c); });
+    if(m.instanceColor) m.instanceColor.needsUpdate = true;
+  });
+  const autumn = ['#c94f2c','#e07b2f','#eaa53a','#d9c24a','#8fa83f','#b8432f','#6f9a3e','#d46a33','#e3b947','#7f9b3a'].map(c => new THREE.Color(c));
+  const blobA = new THREE.IcosahedronGeometry(1.55, 0); blobA.translate(0, 3.1, 0);
+  const blobB = new THREE.IcosahedronGeometry(1.05, 0); blobB.translate(0.55, 4.0, 0.2);
+  const mA = instanced(blobA, foliage, leafy.length, { cast: true });
+  const mB = instanced(blobB, foliage, leafy.length, { cast: true });
+  leafy.forEach((t,i) => {
+    setInst(mA, i, t.x, t.y, t.z, t.ry, t.s, t.sy); setInst(mB, i, t.x, t.y, t.z, t.ry, t.s, t.sy);
+    const c = pick(autumn).clone(); c.offsetHSL(rr(-0.02,0.02), 0, rr(-0.04, 0.04));
+    mA.setColorAt(i, c); mB.setColorAt(i, c.clone().offsetHSL(0, 0, 0.05));
+  });
+  [mA, mB].forEach(m => { if(m.instanceColor) m.instanceColor.needsUpdate = true; });
+
+  /* grass tufts */
+  const gGeo = new THREE.ConeGeometry(0.06, 0.42, 3); gGeo.translate(0, 0.19, 0);
+  const grassCols = ['#6f9a45','#5d8a3b','#9aa64a','#b9a856','#7fa04a'].map(c => new THREE.Color(c));
+  const tufts = [];
+  for(let k=0; k<14000 && tufts.length < (isTouch ? 5000 : 8000); k++){
+    const r = 200*Math.sqrt(rand()), a = rand()*TAU, x = r*Math.cos(a), z = r*Math.sin(a);
+    const n = nearest(x,z); if(n && n.d < 2.3) continue;
+    const hy = height(x,z); if(hy > 70) continue;
+    tufts.push([x, hy, z]);
+  }
+  const grass = instanced(gGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), tufts.length);
+  tufts.forEach((t,i) => { setInst(grass, i, t[0], t[1]-0.05, t[2], rand()*TAU, rr(0.7,1.5), rr(0.8,1.6), rr(-0.25,0.25), rr(-0.25,0.25)); grass.setColorAt(i, pick(grassCols)); });
+  if(grass.instanceColor) grass.instanceColor.needsUpdate = true;
+
+  /* wildflowers near the trail (구절초, 쑥부쟁이 느낌) */
+  const fGeo = new THREE.IcosahedronGeometry(0.13, 0); fGeo.translate(0, 0.42, 0);
+  const fCols = ['#f4f1ea','#f4f1ea','#b9a6dd','#a993d6','#f2d35b'].map(c => new THREE.Color(c));
+  const flowersP = [];
+  for(let k=0; k<6000 && flowersP.length < 1100; k++){
+    const s = rand()*total, p = pointAt(s), side = rand() < 0.5 ? -1 : 1, off = rr(2.4, 7);
+    const x = p.x - p.tz*off*side + rr(-0.5,0.5), z = p.z + p.tx*off*side + rr(-0.5,0.5);
+    flowersP.push([x, height(x,z), z]);
+  }
+  const flowers = instanced(fGeo, new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x222222 }), flowersP.length);
+  flowersP.forEach((t,i) => { setInst(flowers, i, t[0], t[1]-0.05, t[2], 0, rr(0.7,1.2)); flowers.setColorAt(i, pick(fCols)); });
+  if(flowers.instanceColor) flowers.instanceColor.needsUpdate = true;
+
+  /* rocks */
+  const rocksP = [];
+  for(let k=0;k<3000 && rocksP.length<340;k++){
+    let x,z;
+    if(rand() < 0.45){ const p = pointAt(rand()*total), side = rand()<0.5?-1:1, off = rr(2.8, 5); x = p.x - p.tz*off*side; z = p.z + p.tx*off*side; }
+    else { const r = 230*Math.sqrt(rand()), a = rand()*TAU; x = r*Math.cos(a); z = r*Math.sin(a); const n = nearest(x,z); if(n && n.d < 3) continue; }
+    rocksP.push([x,z]);
+  }
+  const rocks = instanced(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true }), rocksP.length, { cast: true, receive: true });
+  const rockCols = ['#8d8a80','#9b978b','#7c7a72','#a7a294'].map(c => new THREE.Color(c));
+  rocksP.forEach((p,i) => { const s = rr(0.3, 1.3); setInst(rocks, i, p[0], height(p[0],p[1]) - s*0.25, p[1], rand()*TAU, s, rr(0.45, 0.85), rr(-0.2,0.2), rr(-0.2,0.2)); rocks.setColorAt(i, pick(rockCols)); });
+  if(rocks.instanceColor) rocks.instanceColor.needsUpdate = true;
+
+  /* trail ribbons (등산 리본) on little posts */
+  const postMat = new THREE.MeshLambertMaterial({ color: 0x6b4c34 });
+  const ribbonCols = [0xe2463c, 0xf2c84b, 0x3d7bd9, 0xe2463c];
+  const postGeo = new THREE.CylinderGeometry(0.06, 0.08, 1.6, 6); postGeo.translate(0, 0.8, 0);
+  const ribGeo = new THREE.PlaneGeometry(0.13, 0.75); ribGeo.translate(0, -0.37, 0);
+  let side = 1, idx = 0;
+  for(let s = 22; s < total - 12; s += 30){
+    const p = pointAt(s); side = -side;
+    const x = p.x - p.tz*2.5*side, z = p.z + p.tx*2.5*side;
+    const post = new THREE.Mesh(postGeo, postMat); post.position.set(x, height(x,z)-0.1, z); post.castShadow = true; scene.add(post);
+    const rib = new THREE.Mesh(ribGeo, new THREE.MeshLambertMaterial({ color: ribbonCols[idx++ % ribbonCols.length], side: THREE.DoubleSide }));
+    rib.position.set(0, 1.5, 0.07); post.add(rib);
+    ribbons.push({ mesh: rib, ph: rand()*TAU, base: Math.atan2(p.tx, p.tz) });
+  }
+
+  /* signposts (이정표) */
+  const wood = new THREE.MeshLambertMaterial({ color: 0x7a5a3a });
+  function signAt(s, lines){
+    const p = pointAt(s), x = p.x - p.tz*2.9, z = p.z + p.tx*2.9, y = height(x,z);
+    const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = Math.atan2(-p.tx, -p.tz) + 0.35;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 2.3, 6), wood); pole.position.y = 1.15; pole.castShadow = true; g.add(pole);
+    const tex = textTex(lines, 512, 280, '#7a5a3a', '#fff6e2', 'rgba(0,0,0,0.22)');
+    const face = new THREE.MeshLambertMaterial({ map: tex });
+    const board = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.88, 0.08), [wood, wood, wood, wood, face, wood]);
+    board.position.set(0, 2.0, 0.13); board.castShadow = true; g.add(board); scene.add(g);
+  }
+  const startP = pointAt(0);
+  signAt(4, [{t:'산행 등산로', size:70, serif:true, b:true}, {t:'정상까지 ' + fmtDist(total*METERS), size:52}]);
+  [0.25, 0.5, 0.75].forEach(f => {
+    const s = total*f;
+    signAt(s, [{t:'↑ 정상 ' + fmtDist((total-s)*METERS), size:58}, {t:'↓ 입구 ' + fmtDist(s*METERS), size:50}]);
+  });
+
+  /* rest benches (쉼터) facing the view */
+  [0.36, 0.68].forEach(f => {
+    const p = pointAt(total*f); let ox = p.x, oz = p.z; const L = Math.hypot(ox,oz) || 1; ox/=L; oz/=L;
+    const x = p.x + ox*4.2, z = p.z + oz*4.2, y = height(x,z);
+    const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = Math.atan2(ox, oz);
+    const plank = new THREE.MeshLambertMaterial({ color: 0x9b7550 });
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.1, 0.5), plank); seat.position.y = 0.48; g.add(seat);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.42, 0.08), plank); back.position.set(0, 0.86, -0.24); back.rotation.x = -0.12; g.add(back);
+    [-0.8, 0.8].forEach(lx => { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.48, 0.45), wood); leg.position.set(lx, 0.24, 0); g.add(leg); });
+    g.traverse(o => { if(o.isMesh) o.castShadow = true; });
+    scene.add(g); benches.push({ x, z, near: false });
+  });
+
+  /* summit: 정상석 + 돌탑 */
+  const end = path[N-1]; summitPos = { x: end.x, z: end.z }; summitY = height(end.x, end.z);
+  const endT = pointAt(total - 3);
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x8f8c82, roughness: 1, flatShading: true });
+  const stoneTex = textTex([{t:'산행', size:92, serif:true, b:true}, {t:'정상', size:64, serif:true}, {t:'해발 ' + ELEV(summitY) + 'm', size:48}], 300, 520, '#8f8c82', '#2e2d28');
+  const stone = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.9, 0.55), [stoneMat, stoneMat, stoneMat, stoneMat, new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 1 }), stoneMat]);
+  const sx = end.x + endT.tx*2.2, sz = end.z + endT.tz*2.2;
+  stone.position.set(sx, height(sx,sz) + 0.9, sz); stone.rotation.y = Math.atan2(-endT.tx, -endT.tz); stone.castShadow = true; scene.add(stone);
+  for(let c=0;c<3;c++){
+    const a = c*2.1 + 0.6, cx = end.x + Math.cos(a)*4.5, cz = end.z + Math.sin(a)*4.5; let cy = height(cx,cz);
+    const layersN = 4 + c;
+    for(let l=0;l<layersN;l++){
+      const r = 0.55 - l*0.07, st = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), stoneMat);
+      st.scale.y = 0.5; st.position.set(cx + rr(-0.05,0.05), cy + r*0.5, cz + rr(-0.05,0.05)); st.rotation.y = rand()*TAU; st.castShadow = true;
+      scene.add(st); cy += r*0.85;
+    }
+  }
+
+  /* distant ranges */
+  const farMat = new THREE.MeshStandardMaterial({ color: 0x7f97ab, roughness: 1, flatShading: true });
+  for(let i=0;i<30;i++){
+    const a = i/30*TAU + rr(-0.06,0.06), r = rr(440, 580);
+    const m = new THREE.Mesh(new THREE.ConeGeometry(rr(140,220), rr(45,95), 6), farMat);
+    m.position.set(Math.cos(a)*r, 10 + m.geometry.parameters.height/2 - 20, Math.sin(a)*r); m.rotation.y = rand()*TAU; scene.add(m);
+  }
+
+  /* clouds */
+  const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x9aa3aa, fog: false, transparent: true, opacity: 0.92 });
+  const puff = new THREE.SphereGeometry(1, 10, 8);
+  for(let i=0;i<11;i++){
+    const g = new THREE.Group(); const n = 5 + Math.floor(rand()*4);
+    for(let j=0;j<n;j++){ const s = rr(10, 22); const m = new THREE.Mesh(puff, cloudMat); m.scale.set(s*1.5, s*0.6, s); m.position.set(rr(-30,30), rr(-3,5), rr(-14,14)); g.add(m); }
+    const a = rand()*TAU, r = rr(180, 480); g.position.set(Math.cos(a)*r, rr(150, 200), Math.sin(a)*r);
+    scene.add(g); clouds.push(g);
+  }
+}
+
+/* ---------- hikers ---------- */
+function makeHiker(o){
+  const M = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 });
+  const root = new THREE.Group(), upper = new THREE.Group(); root.add(upper); upper.position.y = 0.62;
+  const skin = M(0xf6d6b6), pants = M(o.pants), jacket = M(o.jacket), dark = M(0x222222);
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.37, 0.64, 12), jacket); torso.position.y = 0.32; upper.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 18, 14), skin); head.position.y = 0.96; upper.add(head);
+  [-1,1].forEach(sx => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), dark); eye.position.set(0.12*sx, 0.98, 0.31); upper.add(eye);
+    const ch = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), M(0xf3a3a0)); ch.scale.set(1, 0.6, 0.4); ch.position.set(0.2*sx, 0.88, 0.27); upper.add(ch);
+  });
+  const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.36, 0.2, 14), M(o.hat)); hat.position.y = 1.24; upper.add(hat);
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.035, 18), M(o.hat)); brim.position.y = 1.16; upper.add(brim);
+  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.52, 0.25), M(o.pack)); pack.position.set(0, 0.36, -0.31); upper.add(pack);
+  const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.5, 10), M(0xd8c39a)); roll.rotation.z = Math.PI/2; roll.position.set(0, 0.67, -0.31); upper.add(roll);
+  const limb = (px, py, len, r, mat, parent, endMat) => {
+    const pivot = new THREE.Group(); pivot.position.set(px, py, 0); parent.add(pivot);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), mat); m.position.y = -len/2; pivot.add(m);
+    const e = new THREE.Mesh(endMat.geo, endMat.mat); e.position.set(0, -len - 0.02, endMat.z || 0); pivot.add(e);
+    return pivot;
+  };
+  const shoe = { geo: new THREE.BoxGeometry(0.18, 0.12, 0.3), mat: M(0x4a3a2c), z: 0.05 };
+  const hand = { geo: new THREE.SphereGeometry(0.075, 8, 6), mat: skin };
+  const legL = limb(-0.15, 0.6, 0.5, 0.1, pants, root, shoe), legR = limb(0.15, 0.6, 0.5, 0.1, pants, root, shoe);
+  const armL = limb(-0.38, 0.56, 0.46, 0.075, jacket, upper, hand), armR = limb(0.38, 0.56, 0.46, 0.075, jacket, upper, hand);
+  armL.rotation.z = -0.12; armR.rotation.z = 0.12;
+  root.traverse(m => { if(m.isMesh) m.castShadow = true; });
+  scene.add(root);
+  return { root, upper, legL, legR, armL, armR, phase: 0, spd: 0, jacketMat: jacket, waveT: 0, cheerT: 0 };
+}
+function animHiker(h, dt, spd, t){
+  h.spd += (spd - h.spd) * Math.min(1, dt*8);
+  const amt = Math.min(1, h.spd/3);
+  h.phase += dt * (1.5 + h.spd*2.1);
+  const sw = Math.sin(h.phase) * 0.65 * amt;
+  h.legL.rotation.x = sw; h.legR.rotation.x = -sw;
+  h.armL.rotation.x = -sw*0.8; h.armR.rotation.x = sw*0.8;
+  h.upper.position.y = 0.62 + Math.abs(Math.sin(h.phase))*0.05*amt + Math.sin(t*2)*0.006;
+  h.armR.rotation.z = 0.12; h.armL.rotation.z = -0.12;
+  if(h.waveT > 0){ h.waveT -= dt; h.armR.rotation.x = -2.75; h.armR.rotation.z = 0.15 + 0.4*Math.sin(t*11); }
+  if(h.cheerT > 0){ h.cheerT -= dt; h.armL.rotation.x = -2.9; h.armR.rotation.x = -2.9; h.armL.rotation.z = -0.35; h.armR.rotation.z = 0.35;
+    h.upper.position.y += Math.max(0, Math.sin((1.6 - h.cheerT)*8))*0.08; }
+}
+function nameTag(text){
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d');
+  x.fillStyle = 'rgba(250,246,236,0.85)'; const r = 28;
+  x.beginPath(); x.moveTo(r,4); x.arcTo(252,4,252,60,r); x.arcTo(252,60,4,60,r); x.arcTo(4,60,4,4,r); x.arcTo(4,4,252,4,r); x.fill();
+  x.fillStyle = '#2f3b2f'; x.font = '30px "Gowun Dodum", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 128, 34);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthWrite: false, transparent: true }));
+  s.scale.set(1.9, 0.48, 1); s.position.y = 2.35; return s;
+}
+
+/* ---------- falling leaves ---------- */
+let leaves;
+function buildLeaves(){
+  const n = 170, geo = new THREE.BufferGeometry(), p = new Float32Array(n*3), c = new Float32Array(n*3);
+  const cols = ['#e07b2f','#d9c24a','#c94f2c','#eaa53a','#9aa64a'].map(h => new THREE.Color(h));
+  const data = [];
+  for(let i=0;i<n;i++){ const col = pick(cols); c[i*3]=col.r; c[i*3+1]=col.g; c[i*3+2]=col.b; p[i*3+1] = -999; data.push({ fs: rr(0.35, 0.9), ph: rand()*TAU }); }
+  geo.setAttribute('position', new THREE.BufferAttribute(p, 3)); geo.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  const tc = document.createElement('canvas'); tc.width = tc.height = 32; const x = tc.getContext('2d');
+  x.fillStyle = '#fff'; x.beginPath(); x.ellipse(16,16,13,7,0.6,0,TAU); x.fill();
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.3, map: new THREE.CanvasTexture(tc), vertexColors: true, transparent: true, alphaTest: 0.3, depthWrite: false }));
+  pts.frustumCulled = false; scene.add(pts);
+  leaves = { pts, p, data, n };
+}
+function updateLeaves(dt, t, cx, cy, cz, wind){
+  const { p, data, n } = leaves;
+  for(let i=0;i<n;i++){
+    const d = data[i], k = i*3;
+    p[k+1] -= d.fs*dt;
+    p[k]   += (Math.sin(t*1.3 + d.ph)*0.6 + wind*0.9) * dt;
+    p[k+2] += (Math.cos(t*1.1 + d.ph)*0.45 + wind*0.3) * dt;
+    if(p[k+1] < cy - 3 || Math.abs(p[k]-cx) > 20 || Math.abs(p[k+2]-cz) > 20){
+      p[k] = cx + rr(-18, 18); p[k+2] = cz + rr(-18, 18); p[k+1] = cy + rr(3, 14);
+    }
+  }
+  leaves.pts.geometry.attributes.position.needsUpdate = true;
+}
+
+/* ---------- ambient sound (all synthesized) ---------- */
+const Sound = {
+  ctx: null, on: true,
+  init(){
+    const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
+    try { this.ctx = new AC(); } catch(e){ return; }
+    const ctx = this.ctx, sr = ctx.sampleRate;
+    this.master = ctx.createGain(); this.master.gain.value = 0;
+    const comp = ctx.createDynamicsCompressor(); this.master.connect(comp); comp.connect(ctx.destination);
+    this.master.gain.setTargetAtTime(0.9, ctx.currentTime, 1.8);
+
+    const len = sr*4;
+    const pink = ctx.createBuffer(2, len, sr), white = ctx.createBuffer(1, len, sr);
+    for(let ch=0; ch<2; ch++){
+      const d = pink.getChannelData(ch); let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+      for(let i=0;i<len;i++){ const w = Math.random()*2-1;
+        b0=0.99886*b0+w*0.0555179; b1=0.99332*b1+w*0.0750759; b2=0.969*b2+w*0.153852; b3=0.8665*b3+w*0.3104856; b4=0.55*b4+w*0.5329522; b5=-0.7616*b5-w*0.016898;
+        d[i]=(b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.11; b6=w*0.115926; }
+    }
+    const wd = white.getChannelData(0); for(let i=0;i<len;i++) wd[i] = Math.random()*2-1;
+    this.white = white;
+    const loop = (buf) => { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.start(0, Math.random()*3); return s; };
+
+    // wind: low, breathing whoosh
+    this.windLP = ctx.createBiquadFilter(); this.windLP.type = 'lowpass'; this.windLP.frequency.value = 450; this.windLP.Q.value = 0.6;
+    this.windGain = ctx.createGain(); this.windGain.gain.value = 0.15;
+    loop(pink).connect(this.windLP); this.windLP.connect(this.windGain); this.windGain.connect(this.master);
+
+    // leaves rustling: bright noise with fluttering amplitude
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1900;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7500;
+    this.leafGain = ctx.createGain(); this.leafGain.gain.value = 0.03;
+    loop(white).connect(hp); hp.connect(lp); lp.connect(this.leafGain); this.leafGain.connect(this.master);
+    const flutter = ctx.createBiquadFilter(); flutter.type = 'lowpass'; flutter.frequency.value = 14;
+    this.flutterGain = ctx.createGain(); this.flutterGain.gain.value = 0.9;
+    loop(white).connect(flutter); flutter.connect(this.flutterGain); this.flutterGain.connect(this.leafGain.gain);
+
+    // birds bus with a soft forest echo
+    this.birds = ctx.createGain(); this.birds.gain.value = 1; this.birds.connect(this.master);
+    const delay = ctx.createDelay(1.0); delay.delayTime.value = 0.21;
+    const fb = ctx.createGain(); fb.gain.value = 0.28;
+    const dl = ctx.createBiquadFilter(); dl.type = 'lowpass'; dl.frequency.value = 2600;
+    this.send = ctx.createGain(); this.send.gain.value = 0.35;
+    this.send.connect(delay); delay.connect(dl); dl.connect(fb); fb.connect(delay); dl.connect(this.master);
+
+    const next = () => { if(!this.ctx) return; this.bird(); setTimeout(next, 1400 + Math.random()*4800); };
+    setTimeout(next, 1500);
+  },
+  out(pan){
+    const ctx = this.ctx;
+    if(ctx.createStereoPanner){ const p = ctx.createStereoPanner(); p.pan.value = pan; p.connect(this.birds); p.connect(this.send); return p; }
+    const g = ctx.createGain(); g.connect(this.birds); g.connect(this.send); return g;
+  },
+  chirp(t, f0, f1, dur, vol, dest, type){
+    const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.02, dur*0.25)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.05);
+  },
+  bird(){
+    const ctx = this.ctx; if(!ctx || ctx.state !== 'running') return;
+    let t = ctx.currentTime + 0.05; const pan = rr(-0.85, 0.85), dest = this.out(pan), v = rr(0.025, 0.07);
+    const kind = Math.random();
+    if(kind < 0.3){            // 삐-요 (two-note call)
+      const reps = 1 + Math.floor(Math.random()*3), f = rr(0.9, 1.15);
+      for(let r=0;r<reps;r++){ this.chirp(t, 3300*f, 2600*f, 0.13, v, dest); this.chirp(t+0.17, 4200*f, 3000*f, 0.2, v*0.9, dest); t += rr(0.55, 0.8); }
+    } else if(kind < 0.55){    // 쯔삐 쯔삐 (tit-like)
+      const reps = 3 + Math.floor(Math.random()*3), f = rr(0.92, 1.1);
+      for(let r=0;r<reps;r++){ this.chirp(t, 5200*f, 4900*f, 0.07, v*0.8, dest); this.chirp(t+0.09, 3600*f, 3300*f, 0.11, v*0.8, dest); t += 0.27; }
+    } else if(kind < 0.85){    // warbling song
+      const n = 7 + Math.floor(Math.random()*8), base = rr(2600, 3600);
+      for(let i=0;i<n;i++){ const d = rr(0.05, 0.12), f = base*rr(0.8, 1.35); this.chirp(t, f, f*rr(0.85, 1.2), d, v*rr(0.6,1), dest); t += d + rr(0.015, 0.06); }
+    } else if(kind < 0.95){    // 산비둘기 구-구 (far, soft)
+      const vv = v*0.6;
+      this.chirp(t, 540, 500, 0.24, vv, dest); this.chirp(t+0.38, 610, 520, 0.42, vv, dest); this.chirp(t+0.95, 520, 490, 0.22, vv, dest); this.chirp(t+1.22, 520, 485, 0.24, vv, dest);
+    } else {                   // distant woodpecker
+      const n = 12 + Math.floor(Math.random()*8);
+      for(let i=0;i<n;i++) this.tap(t + i*0.055, v*0.5*(1 - i/n*0.5), dest);
+    }
+  },
+  tap(t, vol, dest){
+    const ctx = this.ctx, s = ctx.createBufferSource(); s.buffer = this.white;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1300; bp.Q.value = 4;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol*3, t+0.003); g.gain.exponentialRampToValueAtTime(0.0001, t+0.04);
+    s.connect(bp); bp.connect(g); g.connect(dest); s.start(t, Math.random()*2, 0.06);
+  },
+  footstep(){
+    const ctx = this.ctx; if(!ctx || !this.on) return;
+    const t = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = this.white; s.playbackRate.value = rr(0.7, 1.0);
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = rr(650, 1100); bp.Q.value = 0.9;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(rr(0.06, 0.1), t+0.012); g.gain.exponentialRampToValueAtTime(0.0001, t+0.13);
+    s.connect(bp); bp.connect(g); g.connect(this.master); s.start(t, Math.random()*3, 0.16);
+  },
+  update(g){
+    if(!this.ctx) return; const t = this.ctx.currentTime;
+    this.windGain.gain.setTargetAtTime(0.06 + 0.24*g*g, t, 0.4);
+    this.windLP.frequency.setTargetAtTime(260 + 700*g, t, 0.4);
+    this.leafGain.gain.setTargetAtTime(0.008 + 0.06*g, t, 0.3);
+    this.flutterGain.gain.setTargetAtTime(0.4 + 1.6*g, t, 0.3);
+  },
+  toggle(){
+    this.on = !this.on;
+    if(this.ctx){ this.master.gain.setTargetAtTime(this.on ? 0.9 : 0, this.ctx.currentTime, 0.25); if(this.on && this.ctx.state !== 'running') this.ctx.resume().catch(()=>{}); }
+    return this.on;
+  }
+};
+
+/* ---------- online: walk together (room presence) ---------- */
+const JACKETS = [0xe8735a, 0x5b8fd1, 0x8e6bbf, 0xe3b23c, 0x4f9a76, 0xd8608f];
+const EMOTES = { wave: '👋', heart: '❤️', yaho: '야호!' };
+function cleanName(n){ return String(n || '').replace(/[\u0000-\u001f\u007f­​-‏‪-‮⁠-⁯﻿]/g, '').trim().slice(0, 10); }
+const bubbleCache = {};
+function bubbleTex(key){
+  if(bubbleCache[key]) return bubbleCache[key];
+  const c = document.createElement('canvas'); c.width = 192; c.height = 160; const x = c.getContext('2d');
+  x.fillStyle = 'rgba(255,252,244,0.96)'; const r = 44;
+  x.beginPath(); x.moveTo(8+r,8); x.arcTo(184,8,184,124,r); x.arcTo(184,124,8,124,r); x.arcTo(8,124,8,8,r); x.arcTo(8,8,184,8,r); x.fill();
+  x.beginPath(); x.moveTo(80,120); x.lineTo(96,152); x.lineTo(112,120); x.fill();
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  if(key === 'yaho'){ x.fillStyle = '#b4532c'; x.font = '700 50px "Gowun Batang", serif'; }
+  else { x.fillStyle = '#c0392b'; x.font = '64px sans-serif'; }
+  x.fillText(EMOTES[key], 96, 68);
+  return (bubbleCache[key] = new THREE.CanvasTexture(c));
+}
+function makeBubble(){ const s = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false })); s.position.y = 3.05; s.visible = false; s.userData.t = 0; return s; }
+function emoteOn(h, b, key){
+  if(!EMOTES[key]) return;
+  b.material.map = bubbleTex(key); b.material.needsUpdate = true; b.visible = true; b.userData.t = 3.2;
+  if(key === 'wave') h.waveT = 2.4; if(key === 'yaho') h.cheerT = 1.6;
+}
+function tickBubble(b, dt){
+  if(!b.visible) return; const t = (b.userData.t -= dt);
+  if(t <= 0){ b.visible = false; return; }
+  const pop = Math.min(1, (3.2 - t)*7); b.material.opacity = Math.min(1, t/0.5); b.scale.set(1.25*pop, 1.04*pop, 1);
+}
+
+const NICK_A = ['느긋한','포근한','싱그러운','산뜻한','다정한','조용한','졸린','꼬마','씩씩한','수줍은','반짝이는','노을빛','새벽','단풍빛','초록','몽글몽글한','살랑이는','콧노래','한가로운','부지런한','뽀송한','동그란','숲속','이슬 맺힌'];
+const NICK_B = ['다람쥐','산토끼','청설모','딱따구리','박새','솔방울','도토리','단풍잎','산들바람','구절초','쑥부쟁이','옹달샘','조약돌','이끼','산비둘기','너구리','반딧불','은행잎','솔잎','산새','오솔길','아기곰','고슴도치','버섯','들꽃','억새'];
+function randomNick(){ for(let i=0;i<20;i++){ const n = NICK_A[Math.floor(Math.random()*NICK_A.length)] + ' ' + NICK_B[Math.floor(Math.random()*NICK_B.length)]; if(n.length <= 10) return n; } return '느긋한 다람쥐'; }
+const Online = { room: null, user: null, status: 'connecting', remotes: new Map(), names: {}, sentKey: '', sendT: 0, emote: '', emoteAt: 0 };
+let myName = '', myColor = 0, myBubble;
+const ROOM = (new URLSearchParams(location.search).get('room') || 'lobby').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32) || 'lobby';
+const ROOM_LABEL = ROOM === 'lobby' ? '모두의 산' : ROOM;
+const Net = { peers: new Map(), backoff: 1000 };
+function initOnline(){
+  if(!/^https?:$/.test(location.protocol)){ Online.status = 'offline'; Online.why = 'file'; return; }
+  connect();
+}
+function connect(){
+  Online.status = 'connecting';
+  let ws;
+  try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws?room=' + encodeURIComponent(ROOM)); }
+  catch(e){ return retry(); }
+  ws.onopen = () => {
+    Online.status = 'online'; Net.backoff = 1000; Online.sentKey = ''; Online.sendT = 0;
+    Online.room = { presence: async (o) => { if(ws.readyState === 1) ws.send(JSON.stringify({ t: 'p', s: o })); } };
+  };
+  ws.onmessage = (ev) => {
+    let m; try { m = JSON.parse(ev.data); } catch(e){ return; }
+    if(m.t === 'welcome'){ Net.peers.clear(); (m.peers || []).forEach(p => Net.peers.set(p.id, p.s || {})); }
+    else if(m.t === 'p') Net.peers.set(m.id, m.s || {});
+    else if(m.t === 'leave') Net.peers.delete(m.id);
+    else return;
+    pushPeers();
+  };
+  ws.onclose = () => { Online.room = null; Online.status = 'connecting'; Net.peers.clear(); pushPeers(); retry(); };
+  ws.onerror = () => { try { ws.close(); } catch(e){} };
+}
+function retry(){ setTimeout(connect, Net.backoff); Net.backoff = Math.min(15000, Net.backoff*1.7); }
+function pushPeers(){ syncPeers([...Net.peers].map(([id, s]) => ({ peer: id, by: null, isMe: false, sameTab: false, kind: 'viewer', guest: false, presence: s }))); }
+async function resolveNames(ids){
+  const u = Online.user; if(!u || !u.profiles || !ids.length) return;
+  try { const ps = await u.profiles(ids); ids.forEach(id => { const nm = ps && ps[id] && cleanName(ps[id].name); if(nm) Online.names[id] = nm; }); } catch(e){}
+}
+function clearRemotes(){ Online.remotes.forEach(r => scene.remove(r.h.root)); Online.remotes.clear(); }
+function updateRemoteName(r){
+  const nm = r.nick || (r.by && Online.names[r.by]) || '등산객';
+  if(nm === r.name) return;
+  if(r.tag){ r.h.root.remove(r.tag); r.tag.material.map.dispose(); r.tag.material.dispose(); }
+  r.tag = nameTag(nm); r.h.root.add(r.tag); r.name = nm;
+}
+function syncPeers(peers){
+  const seen = new Set(), need = [];
+  for(const p of peers){
+    if(p.kind !== 'viewer' || (p.isMe && p.sameTab)) continue;
+    const pr = p.presence || {};
+    if(typeof pr.x !== 'number' || typeof pr.z !== 'number' || !isFinite(pr.x) || !isFinite(pr.z)) continue;
+    seen.add(p.peer);
+    let r = Online.remotes.get(p.peer);
+    if(!r){
+      const h = makeHiker({ jacket: JACKETS[0], pants: 0x3b4a5a, hat: 0xf4efe4, pack: 0x4f7c6a });
+      r = { h, x: pr.x, z: pr.z, f: +pr.f || 0, c: -1, name: '', tag: null, et: pr.et, bubble: makeBubble() };
+      h.root.add(r.bubble); Online.remotes.set(p.peer, r);
+    } else if(pr.et !== r.et){ r.et = pr.et; emoteOn(r.h, r.bubble, String(pr.e || '')); }
+    r.tx = clamp(pr.x, -260, 260); r.tz = clamp(pr.z, -260, 260); r.tf = isFinite(+pr.f) ? +pr.f : 0;
+    r.v = clamp(+pr.v || 0, 0, 8); r.el = clamp(+pr.el || 0, 0, 2000); r.by = p.by;
+    const ci = Math.abs(pr.c | 0) % JACKETS.length; if(r.c !== ci){ r.c = ci; r.h.jacketMat.color.setHex(JACKETS[ci]); }
+    r.nick = cleanName(pr.n);
+    if(!r.nick && p.by && !Online.names[p.by]) need.push(p.by);
+    updateRemoteName(r);
+  }
+  for(const [k, r] of Online.remotes) if(!seen.has(k)){ scene.remove(r.h.root); Online.remotes.delete(k); }
+  if(need.length) resolveNames([...new Set(need)]).then(() => Online.remotes.forEach(updateRemoteName));
+}
+function updateRemotes(dt, t){
+  const k = 1 - Math.exp(-dt*8);
+  Online.remotes.forEach(r => {
+    if(Math.hypot(r.tx - r.x, r.tz - r.z) > 30){ r.x = r.tx; r.z = r.tz; }
+    r.x += (r.tx - r.x)*k; r.z += (r.tz - r.z)*k; r.f += angDiff(r.tf, r.f)*k;
+    r.h.root.position.set(r.x, height(r.x, r.z), r.z); r.h.root.rotation.y = r.f;
+    animHiker(r.h, dt, r.v, t); tickBubble(r.bubble, dt);
+  });
+}
+function sendPresence(dt){
+  if(!Online.room || !started) return;
+  Online.sendT -= dt; if(Online.sendT > 0) return; Online.sendT = 0.1;
+  const o = { x: +px.toFixed(2), z: +pz.toFixed(2), f: +facing.toFixed(2), v: +player.spd.toFixed(1), c: myColor, n: myName, e: Online.emote, et: Online.emoteAt, el: ELEV(py) };
+  const key = JSON.stringify(o); if(key === Online.sentKey) return;
+  Online.sentKey = key; Online.room.presence(o).catch(() => {});
+}
+function doEmote(key){ Online.emote = key; Online.emoteAt = Date.now(); Online.sendT = 0; emoteOn(player, myBubble, key); }
+let playersT = 0;
+function updatePlayers(dt){
+  playersT -= dt; if(playersT > 0) return; playersT = 0.5;
+  const el = $('players'); el.textContent = '';
+  const row = (color, name, elev) => {
+    const d = document.createElement('div'); d.className = 'row';
+    const dot = document.createElement('span'); dot.className = 'dot'; dot.style.background = '#' + color.toString(16).padStart(6, '0');
+    const n = document.createElement('span'); n.textContent = name;
+    const e = document.createElement('span'); e.className = 'el'; e.textContent = elev + 'm';
+    d.append(dot, n, e); el.appendChild(d);
+  };
+  const head = document.createElement('div'); head.className = 'head';
+  const others = [...Online.remotes.values()];
+  head.textContent = '[' + ROOM_LABEL + '] ' + (Online.status === 'offline' ? '혼자 걷는 중 (서버 없음)' : others.length ? '함께 걷는 사람 ' + (others.length + 1) + '명' : (Online.status === 'online' ? '아직 나 혼자예요' : '연결 중…'));
+  el.appendChild(head);
+  row(JACKETS[myColor], myName + ' (나)', ELEV(py));
+  others.sort((a,b) => b.el - a.el).slice(0, 7).forEach(r => row(JACKETS[r.c < 0 ? 0 : r.c], r.name, r.el));
+  if(others.length > 7){ const m = document.createElement('div'); m.className = 'head'; m.textContent = '외 ' + (others.length - 7) + '명'; el.appendChild(m); }
+}
+
+/* ---------- UI ---------- */
+const $ = id => document.getElementById(id);
+const ICON_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>';
+const ICON_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
+$('btnSound').innerHTML = ICON_ON;
+let toastTimer = 0;
+function toast(msg, sec){ const el = $('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), (sec||3.6)*1000); }
+
+/* ---------- player / camera state ---------- */
+let player, npcs = [];
+let px=0, pz=0, py=0, facing=0, sPlayer=0, playerD=0;
+let yaw=0, pitch=0.32, dist=7.5, camInit=false, lastDrag=-10;
+let started=false, auto=false, startTime=0, summitShown=false, paused=false;
+const flags = {};
+const keys = new Set();
+const joy = { x:0, y:0, id:null };
+const camTarget = new THREE.Vector3();
+
+function setAuto(v){ auto = v; $('btnAuto').classList.toggle('on', v); $('btnAuto').innerHTML = '<span class="dot"></span>' + (v ? '걷는 중… (멈추기)' : '길 따라 걷기'); }
+function resetToStart(){
+  const p = pointAt(2.5), side = (Math.random()*2 - 1)*1.3; px = p.x - p.tz*side; pz = p.z + p.tx*side; facing = Math.atan2(p.tx, p.tz); yaw = facing; sPlayer = 2.5;
+  py = height(px,pz); summitShown = false; startTime = clock; camInit = false; for(const k in flags) delete flags[k];
+  benches.forEach(b => b.near = false);
+}
+
+function updatePlayer(dt, t){
+  let ix=0, iy=0;
+  if(keys.has('KeyW')||keys.has('ArrowUp')) iy += 1;
+  if(keys.has('KeyS')||keys.has('ArrowDown')) iy -= 1;
+  if(keys.has('KeyD')||keys.has('ArrowRight')) ix += 1;
+  if(keys.has('KeyA')||keys.has('ArrowLeft')) ix -= 1;
+  ix += joy.x; iy += joy.y;
+  let il = Math.hypot(ix,iy); if(il > 1){ ix/=il; iy/=il; il = 1; }
+  const run = keys.has('ShiftLeft') || keys.has('ShiftRight');
+  let mx=0, mz=0, spd=0;
+  if(paused){ /* resting */ }
+  else if(il > 0.08){
+    if(auto) setAuto(false);
+    const fx = Math.sin(yaw), fz = Math.cos(yaw), rx = -Math.cos(yaw), rz = Math.sin(yaw);
+    mx = fx*iy + rx*ix; mz = fz*iy + rz*ix; const L = Math.hypot(mx,mz) || 1; mx/=L; mz/=L;
+    spd = (run ? 6.2 : 3.4) * il;
+  } else if(auto){
+    const target = playerD > 8 ? pointAt(sPlayer) : pointAt(Math.min(total, sPlayer + 4.5));
+    const dx = target.x - px, dz = target.z - pz, L = Math.hypot(dx,dz);
+    if(total - sPlayer < 2.2){ setAuto(false); }
+    else if(L > 0.15){ mx = dx/L; mz = dz/L; spd = 2.9; }
+  }
+  px += mx*spd*dt; pz += mz*spd*dt;
+  const r = Math.hypot(px,pz); if(r > 250){ px *= 250/r; pz *= 250/r; }
+  if(spd > 0.1) facing += angDiff(Math.atan2(mx,mz), facing) * Math.min(1, dt*9);
+  py += (height(px,pz) - py) * Math.min(1, dt*14);
+  player.root.position.set(px, py, pz); player.root.rotation.y = facing;
+  const before = Math.sin(player.phase);
+  animHiker(player, dt, spd, t);
+  if(player.spd > 0.6 && Math.sign(before) !== Math.sign(Math.sin(player.phase))) Sound.footstep();
+
+  if(spd > 0.1 && t - lastDrag > 1.4){
+    const rate = auto ? 1.1 : 0.9 * Math.max(0, iy);
+    yaw += angDiff(facing, yaw) * Math.min(1, dt*rate);
+  }
+  const n = nearest(px,pz);
+  if(n){ playerD = n.d; if(n.d < 14) sPlayer = n.s; } else playerD = 99;
+
+  const f = sPlayer/total;
+  const milestone = (key, cond, msg) => { if(cond && !flags[key]){ flags[key] = true; toast(msg); } };
+  milestone('m0', f > 0.015, '등산로에 들어섰어요. 천천히 걸어요.');
+  milestone('m1', f > 0.2, '바람에 나뭇잎이 살랑거려요.');
+  milestone('m2', f > 0.5, '절반을 왔어요. 숨 한 번 크게 쉬어요.');
+  milestone('m3', f > 0.82, '정상이 얼마 남지 않았어요.');
+  benches.forEach(b => { const d = Math.hypot(b.x-px, b.z-pz); if(d < 5 && !b.near){ b.near = true; toast('쉼터 · 잠깐 앉아 풍경을 바라봐요'); } else if(d > 14) b.near = false; });
+  if(!summitShown && Math.hypot(summitPos.x-px, summitPos.z-pz) < 6.5){
+    summitShown = true; setAuto(false);
+    const sec = Math.round(clock - startTime), mm = Math.floor(sec/60), ss = sec%60;
+    $('summitText').innerHTML = '해발 ' + ELEV(summitY) + 'm에 올랐어요.<br>' + (mm>0 ? mm + '분 ' : '') + ss + '초 동안 걸었어요. 수고했어요.';
+    setTimeout(() => $('summit').classList.remove('hidden'), 900);
+  }
+}
+
+function updateCamera(dt){
+  const tx = px, ty = py + 1.5, tz = pz;
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  let cx = tx - Math.sin(yaw)*cp*dist, cy = ty + sp*dist, cz = tz - Math.cos(yaw)*cp*dist;
+  const gh = height(cx,cz) + 0.9; if(cy < gh) cy = gh;
+  if(!camInit){ camera.position.set(cx,cy,cz); camTarget.set(tx,ty,tz); camInit = true; }
+  const k = 1 - Math.exp(-dt*7);
+  camera.position.x += (cx-camera.position.x)*k; camera.position.y += (cy-camera.position.y)*k; camera.position.z += (cz-camera.position.z)*k;
+  camTarget.x += (tx-camTarget.x)*k*1.4; camTarget.y += (ty-camTarget.y)*k*1.4; camTarget.z += (tz-camTarget.z)*k*1.4;
+  camera.lookAt(camTarget);
+}
+
+function updateNPCs(dt, t){
+  npcs.forEach(n => {
+    if(n.rest > 0){ n.rest -= dt; if(n.rest <= 0) n.s = 0; }
+    else { n.s += n.speed*dt; if(n.s > total - 4){ n.s = total - 4; n.rest = 10; } }
+    const p = pointAt(n.s), x = p.x - p.tz*n.off, z = p.z + p.tx*n.off;
+    n.h.root.position.set(x, height(x,z), z); n.h.root.rotation.y = Math.atan2(p.tx, p.tz);
+    animHiker(n.h, dt, n.rest > 0 ? 0 : n.speed, t);
+  });
+}
+
+let hudT = 0;
+function updateHUD(dt){
+  hudT -= dt; if(hudT > 0) return; hudT = 0.25;
+  const remain = Math.max(0, (total - sPlayer) * METERS);
+  $('stats').textContent = '해발 ' + ELEV(py) + 'm · ' + (remain < 40 ? '정상' : '정상까지 ' + fmtDist(remain));
+  $('barFill').style.width = (sPlayer/total*100).toFixed(1) + '%';
+}
+
+/* ---------- input ---------- */
+addEventListener('keydown', e => { if(e.target && e.target.id === 'nick') return; keys.add(e.code); if(e.code === 'KeyF' && started) setAuto(!auto); });
+addEventListener('keyup', e => keys.delete(e.code));
+addEventListener('blur', () => keys.clear());
+
+const canvas = renderer.domElement, ptrs = new Map(); let pinch0 = 0, dist0 = dist;
+canvas.addEventListener('pointerdown', e => {
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); try { canvas.setPointerCapture(e.pointerId); } catch(_){}
+  if(ptrs.size === 2){ const [a,b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x-b.x, a.y-b.y); dist0 = dist; }
+});
+canvas.addEventListener('pointermove', e => {
+  const p = ptrs.get(e.pointerId); if(!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+  if(ptrs.size === 1){ yaw -= dx*0.006; pitch = clamp(pitch + dy*0.004, 0.04, 1.2); lastDrag = clock; }
+  else if(ptrs.size === 2){ const [a,b] = [...ptrs.values()]; const d = Math.hypot(a.x-b.x, a.y-b.y); if(pinch0 > 0) dist = clamp(dist0 * pinch0/d, 3.5, 16); }
+});
+const endPtr = e => { ptrs.delete(e.pointerId); pinch0 = 0; };
+canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
+canvas.addEventListener('wheel', e => { e.preventDefault(); dist = clamp(dist * (1 + Math.sign(e.deltaY)*0.08), 3.5, 16); }, { passive: false });
+
+const joyEl = $('joy'), knob = $('knob');
+function joyMove(e){
+  const r = joyEl.getBoundingClientRect(), cx = r.left + r.width/2, cy = r.top + r.height/2, R = r.width/2 - 10;
+  let dx = e.clientX - cx, dy = e.clientY - cy; const L = Math.hypot(dx,dy); if(L > R){ dx *= R/L; dy *= R/L; }
+  knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+  joy.x = dx/R; joy.y = -dy/R;
+}
+joyEl.addEventListener('pointerdown', e => { joy.id = e.pointerId; try { joyEl.setPointerCapture(e.pointerId); } catch(_){} joyMove(e); e.stopPropagation(); });
+joyEl.addEventListener('pointermove', e => { if(e.pointerId === joy.id) joyMove(e); });
+const joyEnd = e => { if(e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; knob.style.transform = ''; };
+joyEl.addEventListener('pointerup', joyEnd); joyEl.addEventListener('pointercancel', joyEnd);
+if(isTouch) joyEl.classList.remove('hidden');
+addEventListener('touchstart', () => joyEl.classList.remove('hidden'), { once: true, passive: true });
+
+try { const sv = JSON.parse(localStorage.getItem('sanhaeng2') || '{}'); if(sv.n) $('nick').value = cleanName(sv.n); if(sv.c >= 0 && sv.c < JACKETS.length) myColor = sv.c; } catch(e){}
+JACKETS.forEach((c, i) => {
+  const b = document.createElement('button'); b.className = 'swatch' + (i === myColor ? ' sel' : ''); b.style.background = '#' + c.toString(16).padStart(6, '0');
+  b.setAttribute('aria-label', '옷 색 ' + (i+1));
+  b.addEventListener('click', () => { myColor = i; document.querySelectorAll('.swatch').forEach((x, j) => x.classList.toggle('sel', j === i)); if(player) player.jacketMat.color.setHex(JACKETS[i]); });
+  $('swatches').appendChild(b);
+});
+if(!$('nick').value) $('nick').value = randomNick();
+$('btnDice').addEventListener('click', () => { $('nick').value = randomNick(); });
+$('nick').addEventListener('keydown', e => { e.stopPropagation(); if(e.key === 'Enter') $('nick').blur(); });
+document.querySelectorAll('#emotes button').forEach(b => b.addEventListener('click', () => doEmote(b.dataset.e)));
+addEventListener('keydown', e => { if(!started || e.target === $('nick')) return; if(e.code === 'Digit1') doEmote('wave'); if(e.code === 'Digit2') doEmote('heart'); if(e.code === 'Digit3') doEmote('yaho'); });
+$('roomLine').textContent = '방: ' + ROOM_LABEL + ' · 같은 링크로 들어온 사람과 함께 걸어요';
+function inviteUrl(){ return location.origin + location.pathname + '?room=' + encodeURIComponent(ROOM); }
+$('btnInvite').addEventListener('click', () => {
+  const url = inviteUrl();
+  const ok = () => toast('초대 링크를 복사했어요', 2.5), fail = () => toast(url, 6);
+  try { navigator.clipboard.writeText(url).then(ok, fail); } catch(e){ fail(); }
+});
+initOnline();
+$('btnAuto').addEventListener('click', () => setAuto(!auto));
+$('btnSound').addEventListener('click', () => { const on = Sound.toggle(); $('btnSound').innerHTML = on ? ICON_ON : ICON_OFF; });
+$('btnHelp').addEventListener('click', () => $('help').classList.remove('hidden'));
+$('btnHelpClose').addEventListener('click', () => $('help').classList.add('hidden'));
+$('btnStay').addEventListener('click', () => $('summit').classList.add('hidden'));
+$('btnRestart').addEventListener('click', () => { $('summit').classList.add('hidden'); resetToStart(); toast('다시 입구에서 시작해요'); });
+$('btnStart').addEventListener('click', () => {
+  Sound.init(); if(Sound.ctx && Sound.ctx.state !== 'running') Sound.ctx.resume().catch(()=>{});
+  const s = $('start'); s.style.opacity = '0'; s.style.pointerEvents = 'none'; setTimeout(() => s.classList.add('hidden'), 1200);
+  $('hud').classList.remove('hidden');
+  myName = cleanName($('nick').value) || randomNick(); $('nick').blur();
+  try { localStorage.setItem('sanhaeng2', JSON.stringify({ n: myName, c: myColor })); } catch(e){}
+  player.jacketMat.color.setHex(JACKETS[myColor]);
+  started = true; startTime = clock; yaw = facing;
+  setTimeout(() => toast(isTouch ? '왼쪽 아래를 밀어 걷거나, ‘길 따라 걷기’를 눌러요' : 'WASD로 걷거나, ‘길 따라 걷기’를 눌러요 (F)', 5), 1400);
+});
+addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+/* ---------- main loop ---------- */
+let clock = 0, last = performance.now();
+function gust(t){ return clamp(0.5 + 0.28*Math.sin(t*0.17) + 0.16*Math.sin(t*0.41+1.3) + 0.09*Math.sin(t*1.07+0.5), 0, 1); }
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last)/1000); last = now; clock += dt;
+  const g = gust(clock);
+  U.uTime.value = clock; U.uWind.value = 0.45 + 1.7*g;
+  Sound.update(g);
+  if(started) updatePlayer(dt, clock);
+  else { yaw += dt*0.05; animHiker(player, dt, 0, clock); player.root.position.set(px,py,pz); player.root.rotation.y = facing; }
+  updateNPCs(dt, clock);
+  updateRemotes(dt, clock); tickBubble(myBubble, dt); sendPresence(dt);
+  const alone = Online.remotes.size === 0; npcs.forEach(n => n.h.root.visible = alone);
+  updateCamera(dt);
+  updateLeaves(dt, clock, px, py, pz, 0.3 + g);
+  ribbons.forEach(r => { r.mesh.rotation.z = Math.sin(clock*3.2 + r.ph)*0.25*(0.4+g); r.mesh.rotation.x = Math.sin(clock*2.1 + r.ph)*0.2*(0.4+g); });
+  clouds.forEach(c => { c.position.x += dt*1.6; if(c.position.x > 520) c.position.x = -520; });
+  sky.position.copy(camera.position);
+  sunGlow.position.copy(camera.position).addScaledVector(sunDir, 700);
+  sun.position.set(px + sunDir.x*120, py + sunDir.y*120, pz + sunDir.z*120); sun.target.position.set(px, py, pz); sun.target.updateMatrixWorld();
+  if(started){ updateHUD(dt); updatePlayers(dt); }
+  renderer.render(scene, camera);
+}
+
+/* ---------- boot ---------- */
+function boot(){
+  buildWorld(); buildLeaves();
+  player = makeHiker({ jacket: JACKETS[myColor], pants: 0x3b4a5a, hat: 0xf2c14e, pack: 0x4f7c6a });
+  const npcDefs = [
+    { name: '산들',   jacket: 0x5b8fd1, pants: 0x46505a, hat: 0xf4efe4, pack: 0xc9604a, speed: 2.1, s: 0.18 },
+    { name: '솔바람', jacket: 0x8e6bbf, pants: 0x3a3f4a, hat: 0x6f9a4f, pack: 0xe0b347, speed: 1.7, s: 0.45 },
+    { name: '다람쥐', jacket: 0xe3b23c, pants: 0x5a4636, hat: 0xd65a4a, pack: 0x3f6a8a, speed: 2.4, s: 0.7 }
+  ];
+  npcs = npcDefs.map((d,i) => { const h = makeHiker(d); h.root.add(nameTag(d.name)); return { h, speed: d.speed, s: total*d.s, off: i%2 ? 0.75 : -0.75, rest: 0 }; });
+  myBubble = makeBubble(); player.root.add(myBubble);
+  resetToStart();
+  const b = $('btnStart'); b.disabled = false; b.textContent = '산행 시작하기';
+  requestAnimationFrame(frame);
+}
+const fontsReady = (document.fonts && document.fonts.load)
+  ? Promise.all([document.fonts.load('60px "Gowun Dodum"'), document.fonts.load('700 60px "Gowun Batang"'), document.fonts.load('60px "Gowun Batang"')]).catch(()=>{})
+  : Promise.resolve();
+Promise.race([fontsReady, new Promise(r => setTimeout(r, 2500))]).then(() => setTimeout(boot, 30));
+})();
+</script>
+</body>
+</html>
