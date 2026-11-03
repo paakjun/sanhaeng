@@ -174,6 +174,11 @@
   #loot b { display:block; font-family:"Gowun Batang", serif; font-size:16px; }
   #loot span { font-size:12.5px; opacity:.75; }
   .titem img.ic { width:64px; height:64px; border-radius:50%; display:block; }
+  #mixRows { text-align:left; margin-top:6px; }
+  .mixrow { display:flex; align-items:center; gap:10px; padding:7px 2px; font-size:14px; }
+  .mixrow span:first-child { width:96px; flex:none; }
+  .mixrow input[type=range] { flex:1; accent-color:#4f6b45; height:28px; }
+  .mixrow em { width:30px; font-style:normal; font-size:12px; opacity:.6; text-align:right; }
 </style>
 </head>
 <body>
@@ -259,6 +264,15 @@
   </div>
 </div>
 
+<div id="mixer" class="modal hidden">
+  <div class="sheet">
+    <h2>🎧 소리 조절</h2>
+    <p style="font-size:13px;opacity:.75;margin:0 0 6px">이어폰으로 들으면 소리가 좌우로 더 또렷해요</p>
+    <div id="mixRows"></div>
+    <div class="row"><button id="btnMute">전체 끄기</button><button id="btnMixClose" class="primary">닫기</button></div>
+  </div>
+</div>
+
 <div id="help" class="modal hidden">
   <div class="sheet">
     <h2>등산의 목적 · 안내</h2>
@@ -272,6 +286,7 @@
       <li>🌅 하늘과 해는 지금 한국 시간(KST) 그대로 바뀌어요. 시간 표시를 누르면 일출을 미리 볼 수 있어요</li>
       <li>🧗 바윗길의 밧줄 걸린 암벽에 가까이 가면 ‘암벽 오르기’로 올라갈 수 있어요</li>
       <li>⭐ 정상에 오르면 별(정상 · 캠핑 장비 8개 · 암벽 또는 약수)과 배지, 칭호, 등정 인증서를 받아요</li>
+      <li>🎧 스피커 버튼을 누르면 새소리·바람·물소리·풀벌레·빗소리·발소리를 따로 조절할 수 있어요</li>
       <li>💧 약수터에서 물을 마시면 달리기 체력이 다시 가득 차요</li>
       <li>⚠️ 가끔 산사태가 나요. 우르릉 소리가 나면 옆으로 달려 피하세요. 휩쓸리면 지난 쉼터에서 다시 시작해요</li>
       <li>쉼터 벤치 가까이에서 ‘🪑 앉아서 쉬기’를 누르면 앉아서 경치를 볼 수 있어요</li>
@@ -511,7 +526,9 @@ function updateTimeOfDay(dt){
   U2.top.value.copy(SKY.topN).lerp(SKY.topD, dayK).lerp(SKY.topT, warm*0.35*(1 - dayK*0.5));
   U2.hor.value.copy(SKY.horN).lerp(SKY.horD, dayK).lerp(SKY.horW, warm*0.8);
   scene.fog.color.copy(U2.hor.value).lerp(SKY.horN, night*0.3); scene.background.copy(scene.fog.color);
-  scene.fog.near = 60 - night*30; scene.fog.far = 470 - night*230;
+  { const gray = tmpC.setHex(0x8e969c); U2.top.value.lerp(gray.clone().multiplyScalar(0.4 + 0.6*dayK), rainK*0.6); U2.hor.value.lerp(gray.multiplyScalar(0.45 + 0.55*dayK), rainK*0.5); }
+  scene.fog.color.copy(U2.hor.value).lerp(SKY.horN, night*0.3); scene.background.copy(scene.fog.color);
+  scene.fog.near = 60 - night*30 - rainK*25; scene.fog.far = (470 - night*230)*(1 - 0.45*rainK);
   // light: sun by day, moon by night
   const lightDir = tmpV.copy(sunDir);
   if(altD < -4){ lightDir.set(-sunDir.x, Math.abs(sunDir.y) + 0.5, -sunDir.z).normalize(); }
@@ -519,15 +536,40 @@ function updateTimeOfDay(dt){
   const sunK = smoothstep(-3, 8, altD);
   if(altD >= -4){ sun.color.copy(SKY.sunW).lerp(SKY.sunD, smoothstep(2, 25, altD)); sun.intensity = 0.05 + 1.0*sunK; }
   else { sun.color.copy(SKY.moon); sun.intensity = 0.45*night + 0.08; }
+  sun.intensity *= 1 - 0.6*rainK;
   hemi.color.copy(SKY.hemiN).lerp(SKY.hemiD, dayK); hemi.intensity = 0.32 + 0.26*dayK; amb.intensity = 0.12;
   U2.sunD.value.copy(altD >= -4 ? sunDir : lightDir);
   U2.glowC.value.copy(altD >= -4 ? tmpC.setRGB(1.0, 0.72 + 0.14*smoothstep(0, 20, altD), 0.45 + 0.17*smoothstep(0, 20, altD)).multiplyScalar(0.5 + 0.9*warm + 0.5*sunK) : tmpC.setRGB(0.5, 0.56, 0.75).multiplyScalar(0.35));
   sunGlow.material.color.copy(altD >= -4 ? tmpC2.setRGB(1, 0.82 + 0.18*smoothstep(0, 15, altD), 0.6 + 0.4*smoothstep(0, 15, altD)) : tmpC2.setRGB(0.75, 0.8, 1));
   sunGlow.scale.setScalar(altD >= -4 ? 220 + warm*160 : 70); sunGlow.material.opacity = altD >= -4 ? smoothstep(-5, 0, altD) : night*0.9;
+  sunGlow.material.opacity *= 1 - 0.85*rainK;
   if(starPts){ starPts.material.opacity = night*0.95; starPts.position.copy(camera.position); }
   const lk = 0.22 + 0.78*dayK;
   litMats.forEach(e => { if(e.kind === 'basic') e.m.color.copy(e.base).multiplyScalar(lk).lerp(SKY.horW, warm*0.12); else e.m.emissive.copy(e.base).multiplyScalar(lk); });
   if(leaves) leaves.pts.material.opacity = 0.35 + 0.65*dayK;
+}
+let rainFx = null, rainK = 0;
+function buildRain(){
+  const n = isTouch ? 500 : 900, pos = new Float32Array(n*6), sp = [];
+  for(let i=0;i<n;i++){ sp.push(0.7 + Math.random()*0.6); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const m = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xc8d4e0, transparent: true, opacity: 0, depthWrite: false }));
+  m.frustumCulled = false; scene.add(m); rainFx = { m, pos, sp, n, init: false };
+}
+function updateRain(dt){
+  rainK += (mixK('rain') - rainK)*Math.min(1, dt*0.8);
+  if(!rainFx) buildRain();
+  const R2 = rainFx, vis = rainK > 0.02; R2.m.visible = vis; if(!vis) return;
+  R2.m.material.opacity = 0.3 + 0.5*rainK;
+  const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z, p = R2.pos, active = Math.floor(R2.n*rainK);
+  for(let i=0;i<R2.n;i++){
+    const k = i*6;
+    if(i >= active){ p[k+1] = p[k+4] = -9999; continue; }
+    if(!R2.init || p[k+1] < cy - 12 || Math.abs(p[k] - cx) > 22 || Math.abs(p[k+2] - cz) > 22){ p[k] = cx + (Math.random()*2 - 1)*20; p[k+1] = cy + Math.random()*24 - 4; p[k+2] = cz + (Math.random()*2 - 1)*20; }
+    p[k+1] -= 22*R2.sp[i]*dt; p[k] += 1.2*dt;
+    p[k+3] = p[k] - 0.05; p[k+4] = p[k+1] + 0.8; p[k+5] = p[k+2];
+  }
+  R2.init = true; R2.m.geometry.attributes.position.needsUpdate = true;
 }
 const tmpV = new THREE.Vector3(), sunLightDir = new THREE.Vector3(0.55, 0.62, 0.38).normalize();
 function todLabel(){
@@ -1363,6 +1405,9 @@ function updateLeaves(dt, t, cx, cy, cz, wind){
 }
 
 /* ---------- ambient sound (all synthesized) ---------- */
+const MIX_DEF = { birds: 70, wind: 55, water: 70, bugs: 60, rain: 0, steps: 70, gear: 60 };
+let MIX = Object.assign({}, MIX_DEF); try { Object.assign(MIX, JSON.parse(localStorage.getItem('sanhaeng-mix') || '{}')); } catch(e){}
+const mixK = k => (MIX[k] || 0)/100;
 const Sound = {
   ctx: null, on: true,
   init(){
@@ -1398,7 +1443,26 @@ const Sound = {
     loop(white).connect(bub); bub.connect(bubG); bubG.connect(wbp.frequency);
     wsrc.connect(wbp); wbp.connect(wlp); wlp.connect(this.waterGain); this.waterGain.connect(this.master);
     // birds bus with a soft forest echo
-    this.birds = ctx.createGain(); this.birds.gain.value = 1; this.birds.connect(this.master);
+    this.birds = ctx.createGain(); this.birds.gain.value = mixK('birds')*1.4; this.birds.connect(this.master);
+    this.steps = ctx.createGain(); this.steps.gain.value = mixK('steps')*1.4; this.steps.connect(this.master);
+    this.gearBus = ctx.createGain(); this.gearBus.gain.value = mixK('gear')*1.4; this.gearBus.connect(this.master);
+    // 풀벌레 (귀뚜라미·방울벌레): continuous chirp trains, gently panned
+    this.bugs = ctx.createGain(); this.bugs.gain.value = 0; this.bugs.connect(this.master);
+    const shaper = ctx.createWaveShaper(); { const cv = new Float32Array(256); for(let i=0;i<256;i++){ const v = i/127.5 - 1; cv[i] = v > 0 ? v*v : 0; } shaper.curve = cv; }
+    [[4300, 26, 0.55, -0.6, 0.6], [3900, 34, 0.8, 0.5, 0.45], [5200, 18, 0.35, 0.1, 0.3]].forEach(([f, pr, slow, pan, vol]) => {
+      const o = ctx.createOscillator(); o.frequency.value = f;
+      const a1 = ctx.createGain(); a1.gain.value = 0; const l1 = ctx.createOscillator(); l1.frequency.value = pr; const s1 = ctx.createWaveShaper(); s1.curve = shaper.curve; l1.connect(s1); s1.connect(a1.gain);
+      const a2 = ctx.createGain(); a2.gain.value = 0; const l2 = ctx.createOscillator(); l2.frequency.value = slow; const s2 = ctx.createWaveShaper(); s2.curve = shaper.curve; l2.connect(s2); s2.connect(a2.gain);
+      const v = ctx.createGain(); v.gain.value = vol*0.05; const pn = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain(); if(pn.pan) pn.pan.value = pan;
+      o.connect(a1); a1.connect(a2); a2.connect(v); v.connect(pn); pn.connect(this.bugs); if(this.send) v.connect(this.send);
+      o.start(); l1.start(); l2.start();
+    });
+    // 빗소리: soft broadband patter + hiss, plus droplets scheduled in update()
+    this.rain = ctx.createGain(); this.rain.gain.value = 0; this.rain.connect(this.master);
+    { const r1 = loop(pink), lp = ctx.createBiquadFilter(), hp = ctx.createBiquadFilter(), g1 = ctx.createGain(); lp.type = 'lowpass'; lp.frequency.value = 4800; hp.type = 'highpass'; hp.frequency.value = 350; g1.gain.value = 0.55;
+      r1.connect(hp); hp.connect(lp); lp.connect(g1); g1.connect(this.rain);
+      const r2 = loop(white), bp = ctx.createBiquadFilter(), g2 = ctx.createGain(); bp.type = 'bandpass'; bp.frequency.value = 6500; bp.Q.value = 0.4; g2.gain.value = 0.06;
+      r2.connect(bp); bp.connect(g2); g2.connect(this.rain); }
     // natural forest reverb (generated impulse response)
     const irLen = Math.floor(sr*2.6), ir = ctx.createBuffer(2, irLen, sr);
     for(let ch=0; ch<2; ch++){ const d = ir.getChannelData(ch); let lp = 0; for(let i=0;i<irLen;i++){ const x = Math.random()*2 - 1; lp += (x - lp)*0.35; d[i] = lp*Math.pow(1 - i/irLen, 3.2)*(i < sr*0.012 ? i/(sr*0.012) : 1); } }
@@ -1501,7 +1565,7 @@ const Sound = {
     g.gain.exponentialRampToValueAtTime(0.0001, t + 1.0);
     s.connect(lp); lp.connect(g); g.connect(this.master); s.start(t, Math.random()*2, 1.1);
   },
-  setWater(v){ if(!this.ctx || !this.waterGain) return; this.waterGain.gain.setTargetAtTime(0.11*v, this.ctx.currentTime, 0.3); },
+  setWater(v){ this.waterProx = v; if(!this.ctx || !this.waterGain) return; this.waterGain.gain.setTargetAtTime(0.11*v*mixK('water')*1.4, this.ctx.currentTime, 0.3); },
   gulp(){
     const ctx = this.ctx; if(!ctx || !this.on) return;
     const t = ctx.currentTime;
@@ -1562,7 +1626,17 @@ const Sound = {
   footstep(){
     const ctx = this.ctx; if(!ctx || !this.on) return;
     const t = ctx.currentTime + 0.005, surf = (typeof curSection === 'string' && curSection) || 'forest';
-    const out = ctx.createGain(); out.gain.value = surf === 'rock' ? 0.85 : 1; out.connect(this.master);
+    const out = ctx.createGain(); out.gain.value = surf === 'rock' ? 0.85 : 1; out.connect(this.steps);
+    // backpack fabric swish (very soft, close)
+    { const s = ctx.createBufferSource(); s.buffer = this.white; const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = rr(900, 1500); bp.Q.value = 0.5;
+      const g = ctx.createGain(), st = t + 0.03; g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(0.012, st + 0.05); g.gain.setTargetAtTime(0, st + 0.07, 0.05);
+      s.connect(bp); bp.connect(g); g.connect(this.steps); s.start(st, Math.random()*3, 0.3); }
+    // gear clinks: cup / carabiner / lantern / burner gently knocking
+    { const mask = typeof gearMask === 'function' ? gearMask() : 0, metal = [1, 2, 3, 5].filter(i => mask & (1 << i));
+      if(metal.length && Math.random() < 0.55){ const st = t + rr(0.05, 0.14), f = [3200, 2400, 1900, 2800][Math.floor(Math.random()*4)]*rr(0.95, 1.08);
+        [1, 2.7].forEach((m, k) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = f*m;
+          g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(k ? 0.003 : 0.012*Math.min(1.6, 0.6 + metal.length*0.25), st + 0.002); g.gain.setTargetAtTime(0, st + 0.004, k ? 0.02 : 0.07);
+          o.connect(g); g.connect(this.gearBus); if(this.send) g.connect(this.send); o.start(st); o.stop(st + 0.4); }); } }
     // soft body thud
     const th = ctx.createOscillator(), tg = ctx.createGain(); th.type = 'sine';
     th.frequency.setValueAtTime(surf === 'stairs' ? 150 : 95, t); th.frequency.exponentialRampToValueAtTime(55, t + 0.07);
@@ -1579,9 +1653,26 @@ const Sound = {
       s.connect(bp); bp.connect(g); g.connect(out); s.start(st, Math.random()*3, len + 0.05);
     }
   },
+  plip(vol, dest, pan){   // a single water droplet: fast upward pitch sweep
+    const ctx = this.ctx, t = ctx.currentTime + Math.random()*0.05, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine';
+    const f = rr(700, 1500); o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f*rr(2.2, 3.2), t + 0.05);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.004); g.gain.setTargetAtTime(0, t + 0.01, 0.018);
+    let d = dest; if(ctx.createStereoPanner){ const pn = ctx.createStereoPanner(); pn.pan.value = pan; pn.connect(dest); d = pn; }
+    o.connect(g); g.connect(d); if(this.send) g.connect(this.send); o.start(t); o.stop(t + 0.15);
+  },
+  tick(dt){
+    if(!this.ctx || !this.on) return;
+    const rk = mixK('rain'), wk = this.waterProx || 0;
+    if(rk > 0.02 && Math.random() < dt*30*rk) this.plip(0.012 + Math.random()*0.03*rk, this.rain, rr(-0.9, 0.9));
+    if(wk > 0.05 && Math.random() < dt*6*wk) this.plip(0.025*wk*mixK('water')*1.4, this.master, rr(-0.5, 0.5));
+  },
   update(g){
     if(!this.ctx) return; const t = this.ctx.currentTime;
-    this.windGain.gain.setTargetAtTime(0.06 + 0.24*g*g, t, 0.4);
+    this.birds.gain.setTargetAtTime(mixK('birds')*1.4*(1 - 0.55*mixK('rain')), t, 0.5);
+    this.steps.gain.setTargetAtTime(mixK('steps')*1.4, t, 0.2); this.gearBus.gain.setTargetAtTime(mixK('gear')*1.4, t, 0.2);
+    this.bugs.gain.setTargetAtTime(mixK('bugs')*(0.12 + 0.88*TOD.night + 0.4*TOD.warm)*(1 - 0.7*mixK('rain')), t, 0.8);
+    this.rain.gain.setTargetAtTime(mixK('rain')*0.5, t, 0.8);
+    this.windGain.gain.setTargetAtTime((0.06 + 0.24*g*g)*mixK('wind')*1.8, t, 0.4);
     this.windLP.frequency.setTargetAtTime(260 + 700*g, t, 0.4);
   },
   toggle(){
@@ -2583,7 +2674,20 @@ $('btnClimb').addEventListener('click', () => startClimb(nearClimb()));
 $('btnClimbDown').addEventListener('click', climbDown);
 $('btnStand').addEventListener('click', standUp);
 addEventListener('keydown', e => { if(!started || e.target === $('nick')) return; if(e.code === 'KeyE'){ if(Act.target) doAction(); else if(Rest.on) standUp(); else if(Climb.on) climbDown(); else if(nearClimb()) startClimb(nearClimb()); else if(nearBench()) sitDown(nearBench()); else drinkWater(); } });
-$('btnSound').addEventListener('click', () => { const on = Sound.toggle(); $('btnSound').innerHTML = on ? ICON_ON : ICON_OFF; });
+const MIX_LABELS = [['birds','🐦 새소리'], ['wind','🍃 바람'], ['water','💧 물소리'], ['bugs','🦗 풀벌레'], ['rain','🌧️ 빗소리'], ['steps','👣 발소리'], ['gear','🔔 장비 달그락']];
+MIX_LABELS.forEach(([k, lab]) => {
+  const row = document.createElement('label'); row.className = 'mixrow';
+  const a = document.createElement('span'); a.textContent = lab;
+  const r = document.createElement('input'); r.type = 'range'; r.min = 0; r.max = 100; r.value = MIX[k];
+  const v = document.createElement('em'); v.textContent = MIX[k];
+  r.addEventListener('input', () => { MIX[k] = +r.value; v.textContent = r.value; try { localStorage.setItem('sanhaeng-mix', JSON.stringify(MIX)); } catch(e){}
+    if(k === 'rain') toast(+r.value > 0 ? '🌧️ 보슬보슬 비가 내려요' : '☁️ 비가 그쳤어요', 2); });
+  row.append(a, r, v); $('mixRows').appendChild(row);
+});
+$('btnSound').addEventListener('click', () => { $('mixer').classList.remove('hidden'); if(Sound.ctx && Sound.ctx.state !== 'running') Sound.ctx.resume().catch(()=>{}); });
+$('btnMixClose').addEventListener('click', () => $('mixer').classList.add('hidden'));
+$('mixer').addEventListener('click', e => { if(e.target === $('mixer')) $('mixer').classList.add('hidden'); });
+$('btnMute').addEventListener('click', () => { const on = Sound.toggle(); $('btnMute').textContent = on ? '전체 끄기' : '전체 켜기'; $('btnSound').innerHTML = on ? ICON_ON : ICON_OFF; });
 $('btnHelp').addEventListener('click', () => $('help').classList.remove('hidden'));
 $('btnHelpClose').addEventListener('click', () => $('help').classList.add('hidden'));
 $('btnOther').addEventListener('click', () => showStartScreen(true));
@@ -2612,7 +2716,7 @@ function frame(now){
   const dt = Math.min(0.05, (now - last)/1000); last = now; clock += dt;
   const g = gust(clock);
   U.uTime.value = clock; U.uWind.value = 0.45 + 1.7*g;
-  Sound.update(g);
+  Sound.update(g); Sound.tick(dt);
   if(started) updatePlayer(dt, clock);
   else { yaw += dt*0.06; animHiker(player, dt, 0, clock); player.root.position.set(px,py,pz); player.root.rotation.y = yaw + Math.PI; }
   updateNPCs(dt, clock);
@@ -2630,7 +2734,7 @@ function frame(now){
   ribbons.forEach(r => { r.mesh.rotation.z = Math.sin(clock*3.2 + r.ph)*0.25*(0.4+g); r.mesh.rotation.x = Math.sin(clock*2.1 + r.ph)*0.2*(0.4+g); });
   clouds.forEach(c => { if(c.isSea){ return; } c.position.x += dt*1.6; if(c.position.x > 520) c.position.x = -520; });
   sky.position.copy(camera.position);
-  updateTimeOfDay(dt);
+  updateRain(dt); updateTimeOfDay(dt);
   sunGlow.position.copy(camera.position).addScaledVector(TOD.altDeg >= -4 ? sunDir : sunLightDir, 700);
   sun.position.set(px + sunLightDir.x*120, py + Math.max(sunLightDir.y, 0.08)*120, pz + sunLightDir.z*120); sun.target.position.set(px, py, pz); sun.target.updateMatrixWorld();
   if(started){ updateHUD(dt); updatePlayers(dt); }
